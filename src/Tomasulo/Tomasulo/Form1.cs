@@ -1,11 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace Tomasulo
@@ -15,6 +9,7 @@ namespace Tomasulo
         InstructionUnit instructionUnit = new InstructionUnit();
         ReservationStation loadStation, storeStation, addStation, multiplyStation;
         FloatingPointRegisters floatRegs;
+        IntegerRegisters intRegs;
         private List<Instruction> instructions = new List<Instruction>();
         private int clocks = 0;
 
@@ -44,6 +39,7 @@ namespace Tomasulo
             multiplyStation = new ReservationStation(2, ReservationStation.RSType.Multiply);
 
             floatRegs = new FloatingPointRegisters(30);
+            intRegs = new IntegerRegisters(30);
 
             UpdateInstructionQueueBox();
             UpdateClockCountBox();
@@ -71,25 +67,63 @@ namespace Tomasulo
 
         // This is the main method that will run a cycle using Tomasulo's Algorithm.
         private void RunOneCycle()
-        {
-            Issue();
-            Execute();
+        {   // Do backwards so that only 1 stage is run on eac instruction per cycle.
             Write();
+            Execute();
+            Issue();
+        }
+
+        private WaitInfo FindRegister(string name)
+        {
+            if (name.Substring(0) == "F")
+            {   // Floating Point.
+                return floatRegs.Get(Int32.Parse(name.Substring(1)));
+            }
+            else if (name.Substring(0) == "R")
+            {   // Integer.
+                //jReg = intRegs.Get(Int32.Parse(instruction.j.Substring(1)));
+                return null;
+            }
+            else if (name[name.Length - 1] == '+')
+            {   // Number offset.
+                return new WaitInfo(float.Parse(name.Substring(0, name.Length - 2)),
+                    WaitInfo.WaitState.Avail);
+            }
+            else
+            {   // Number.
+                return new WaitInfo(float.Parse(name), WaitInfo.WaitState.Avail);
+            }
         }
 
         private void Issue()
         {
+            // If empty.
+            if (instructionUnit.GetCurrentInstructions().Length == 0) return;
+
             int bufNum;
             Instruction instruction = instructionUnit.PeekAtInstruction();
+            Operand jReg, kReg;
+            WaitInfo wsJ, wsK;
+
+            // Get Source Regs.
+            jReg = new Operand(instruction.j);
+            kReg = new Operand(instruction.k);
+            wsJ = FindRegister(instruction.j);
+            wsK = FindRegister(instruction.k);
 
             switch (instruction.instType)
             {
                 case Instruction.InstructionType.Add:
                     if ((bufNum = addStation.GetFreeBuffer()) != -1)
                     {
-                        // Issue.
-                        addStation.PutInBuffer(instructionUnit.GetInstruction(), bufNum);
-                        //floatRegs.[instruction.dest.Substring(1)] = 
+                        new Operand(instruction.j);
+                        // Put in Reservation Station.
+                        addStation.PutInBuffer(instructionUnit.GetInstruction(),
+                            bufNum, jReg, kReg, wsJ, wsK);
+
+                        // Set Dest Reg.
+                        floatRegs.Set(WaitInfo.WaitState.AddStation, bufNum,
+                            Int32.Parse(instruction.dest.Substring(1)));
                     }
                     else
                     {
@@ -101,7 +135,12 @@ namespace Tomasulo
                     if ((bufNum = multiplyStation.GetFreeBuffer()) != -1)
                     {
                         // Issue.
-                        multiplyStation.PutInBuffer(instructionUnit.GetInstruction(), bufNum);
+                        multiplyStation.PutInBuffer(instructionUnit.GetInstruction(),
+                            bufNum, jReg, kReg, wsJ, wsK);
+
+                        // Set Dest Reg.
+                        floatRegs.Set(WaitInfo.WaitState.MultStation, bufNum,
+                            Int32.Parse(instruction.dest.Substring(1)));
                     }
                     else
                     {
@@ -113,7 +152,8 @@ namespace Tomasulo
                     if ((bufNum = loadStation.GetFreeBuffer()) != -1)
                     {
                         // Issue.
-                        loadStation.PutInBuffer(instructionUnit.GetInstruction(), bufNum);
+                        loadStation.PutInBuffer(instructionUnit.GetInstruction(),
+                            bufNum, jReg, kReg, wsJ, wsK);
                     }
                     else
                     {
@@ -125,7 +165,8 @@ namespace Tomasulo
                     if ((bufNum = storeStation.GetFreeBuffer()) != -1)
                     {
                         // Issue.
-                        storeStation.PutInBuffer(instructionUnit.GetInstruction(), bufNum);
+                        storeStation.PutInBuffer(instructionUnit.GetInstruction(),
+                            bufNum, jReg, kReg, wsJ, wsK);
                     }
                     else
                     {
@@ -137,12 +178,108 @@ namespace Tomasulo
 
         private void Execute()
         {
+            // Add Station.
+            for (int i = 0; i < addStation.numBuffers; i++)
+            {
+                addStation.RunExecution(i);
+            }
 
+            // Multiply Station.
+            for (int i = 0; i < multiplyStation.numBuffers; i++)
+            {
+                multiplyStation.RunExecution(i);
+            }
+
+            // Load Station.
+            for (int i = 0; i < loadStation.numBuffers; i++)
+            {
+                loadStation.RunExecution(i);
+            }
+
+            // Store Station.
+            for (int i = 0; i < storeStation.numBuffers; i++)
+            {
+                storeStation.RunExecution(i);
+            }
         }
 
         private void Write()
         {
+            // Add Results.
+            for (int i = 0; i < addStation.numBuffers; i++)
+            {
+                if (addStation.results[i] != -1)
+                {   // Ready.
+                    if (addStation.dest[i].opType == Operand.OperandType.FloatReg)
+                    {
+                        floatRegs.Set(WaitInfo.WaitState.Avail, addStation.results[i],
+                            (int) addStation.dest[i].opVal);
+                    }
+                    else if (addStation.dest[i].opType == Operand.OperandType.IntReg)
+                    {
+                        intRegs.Set(WaitInfo.WaitState.Avail, addStation.results[i],
+                            (int) addStation.dest[i].opVal);
+                    }
+                    else
+                    {
+                        Console.WriteLine("Don't know what to do with result.");
+                    }
+                }
+            }
 
+            // Multiply Results.
+            for (int i = 0; i < multiplyStation.numBuffers; i++)
+            {
+                if (multiplyStation.results[i] != -1)
+                {   // Ready.
+                    if (multiplyStation.dest[i].opType == Operand.OperandType.FloatReg)
+                    {
+                        floatRegs.Set(WaitInfo.WaitState.Avail, multiplyStation.results[i],
+                            (int) multiplyStation.dest[i].opVal);
+                    }
+                    else if (multiplyStation.dest[i].opType == Operand.OperandType.IntReg)
+                    {
+                        intRegs.Set(WaitInfo.WaitState.Avail, multiplyStation.results[i],
+                            (int) multiplyStation.dest[i].opVal);
+                    }
+                    else
+                    {
+                        Console.WriteLine("Don't know what to do with result.");
+                    }
+                }
+            }
+
+            // Load Results.
+            for (int i = 0; i < loadStation.numBuffers; i++)
+            {
+                if (loadStation.results[i] != -1)
+                {   // Ready.
+                    if (loadStation.dest[i].opType == Operand.OperandType.FloatReg)
+                    {
+                        floatRegs.Set(WaitInfo.WaitState.Avail, loadStation.results[i],
+                            (int) loadStation.dest[i].opVal);
+                    }
+                    else if (loadStation.dest[i].opType == Operand.OperandType.IntReg)
+                    {
+                        intRegs.Set(WaitInfo.WaitState.Avail, loadStation.results[i],
+                            (int) loadStation.dest[i].opVal);
+                    }
+                    else
+                    {
+                        Console.WriteLine("Don't know what to do with result.");
+                    }
+                }
+            }
+
+            // Store Results.
+            for (int i = 0; i < loadStation.numBuffers; i++)
+            {
+                if (storeStation.results[i] != -1)
+                {   // Ready.
+                    //memLocs.Set(WaitInfo.WaitState.Avail, storeStation.results[i],
+                    //   (int) storeStation.dest[i].opVal);
+                }
+            }
         }
 
         private void UpdateClockCountBox()
@@ -160,196 +297,6 @@ namespace Tomasulo
             clocks++;
             RunOneCycle();
             UpdateClockCountBox();
-        }
-    }
-
-    // A simple class with our instruction, and results.
-    public class Instruction
-    {   // This isn't a complete list of MIPS instructions yet.
-        public enum Opcodes { LD, SD, MULD, SUBD, DIVD, ADDD };
-        public enum InstructionType { Add, Multiply, Load, Store };
-        public Opcodes opcode;
-        public InstructionType instType;
-        public string dest;
-        public string j;
-        public string k;
-
-        public string result;
-        public int cyclesToComplete;
-        public bool issued, executed, completed;
-
-        public Instruction(Opcodes opCode, string operand1, string operand2, string operand3)
-        {
-            opcode = opCode;
-            dest = operand1;
-            j = operand2;
-            k = operand3;
-            issued = executed = completed = false;
-
-            switch (opCode)
-            {
-                case Opcodes.ADDD:
-                    instType = InstructionType.Add;
-                    break;
-                case Opcodes.MULD:
-                    instType = InstructionType.Multiply;
-                    break;
-                case Opcodes.LD:
-                case Opcodes.SD:
-                    instType = InstructionType.Store;
-                    break;
-            }
-        }
-    }
-
-    public class InstructionUnit
-    {
-        Queue<Instruction> instructions = new Queue<Instruction>();
-
-        public void AddInstruction(Instruction instruct)
-        {
-            instructions.Enqueue(instruct);
-            instructions.ToArray<Instruction>();
-        }
-
-        public Instruction GetInstruction()
-        {
-            return instructions.Dequeue();
-        }
-
-        public Instruction PeekAtInstruction()
-        {
-            return instructions.Peek();
-        }
-
-        public Instruction[] GetCurrentInstructions()
-        {
-            return instructions.ToArray<Instruction>();
-        }
-    }
-
-    public class Operand
-    {
-        public enum OperandType { FloatReg, IntReg, RegOffset, Num };
-        public OperandType opType;
-        public float opVal;
-
-        public Operand(string rawOperand)
-        {
-            if (rawOperand[0] == 'F')
-            {   // Floating-point Register
-                opType = OperandType.FloatReg;
-                opVal = float.Parse(rawOperand.Substring(1));
-            }
-            else if (rawOperand[0] == 'R')
-            {   // Integer Register
-                opType = OperandType.IntReg;
-                opVal = float.Parse(rawOperand.Substring(1));
-            }
-            else if (rawOperand[rawOperand.Length - 1] == '+')
-            {   // Register Offset
-                opType = OperandType.RegOffset;
-                opVal = float.Parse(rawOperand.Substring(0, rawOperand.Length - 2));
-            }
-            else
-            {   // Plain Number
-                opType = OperandType.Num;
-                opVal = float.Parse(rawOperand);
-            }
-        }
-    }
-
-    public class ReservationStation
-    {
-        public enum RSType { Load, Store, Add, Multiply };
-        public Operand Qj, Qk, Vj, Vk, dest;
-
-        private int numBuffers = 2;
-        private List<bool> busy = new List<bool>();
-        private RSType rsType;
-
-        public ReservationStation(int numToMake, RSType resStaType)
-        {
-            numBuffers = numToMake;
-            rsType = resStaType;
-
-            for (int i = 0; i < numToMake; i++)
-            {
-                busy[i] = false;
-            }
-        }
-
-        public int GetFreeBuffer()
-        {
-            for (int i = 0; i < numBuffers; i++)
-            {
-                if (!busy[i])
-                {
-                    return i;
-                }
-            }
-            return -1;
-        }
-
-        public void PutInBuffer(Instruction instr, int index)
-        {
-            Qj = new Operand(instr.j);
-            Qk = new Operand(instr.k);
-            dest = new Operand(instr.dest);
-
-            switch (instr.instType)
-            {
-                case Instruction.InstructionType.Add:
-                    
-                    // Get registers/numbers.
-
-                    break;
-
-                case Instruction.InstructionType.Multiply:
-                    
-                    break;
-
-                case Instruction.InstructionType.Load:
-                    
-                    break;
-
-                case Instruction.InstructionType.Store:
-                    
-                    break;
-            }
-        }
-    }
-
-    public class FloatingPointRegisters
-    {
-        public enum WaitState { LoadStation, StoreStation, MultStation, AddStation, Compute, Avail };
-
-        public class FPRegStruct
-        {
-            public float value;
-            public WaitState waitState = new WaitState();
-        }
-
-        private List<FPRegStruct> fpRegs = new List<FPRegStruct>();
-
-        public FloatingPointRegisters(int numToCreate)
-        {
-            for (int i = 0; i < numToCreate; i++)
-            {
-                fpRegs[i].value = 0.0f;
-                fpRegs[i].waitState = WaitState.Avail;
-            }
-        }
-
-        public void Set(WaitState state, float val, int index)
-        {
-            fpRegs[index].waitState = state;
-            fpRegs[index].value = val;
-        }
-
-        public FPRegStruct Get(int index)
-        {
-            return fpRegs[index];
         }
     }
 }
