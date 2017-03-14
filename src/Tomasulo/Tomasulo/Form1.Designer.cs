@@ -115,9 +115,6 @@
             this.lineShape6 = new Microsoft.VisualBasic.PowerPacks.LineShape();
             this.lineShape5 = new Microsoft.VisualBasic.PowerPacks.LineShape();
             this.lineShape4 = new Microsoft.VisualBasic.PowerPacks.LineShape();
-            this.lineShape3 = new Microsoft.VisualBasic.PowerPacks.LineShape();
-            this.lineShape2 = new Microsoft.VisualBasic.PowerPacks.LineShape();
-            this.lineShape1 = new Microsoft.VisualBasic.PowerPacks.LineShape();
             this.label4 = new System.Windows.Forms.Label();
             this.fpAdders = new System.Windows.Forms.Label();
             this.fpMultipliers = new System.Windows.Forms.Label();
@@ -136,9 +133,9 @@
             // 
             // instructionQueue
             // 
-            this.instructionQueue.Location = new System.Drawing.Point(242, 27);
+            this.instructionQueue.Location = new System.Drawing.Point(234, 27);
             this.instructionQueue.Name = "instructionQueue";
-            this.instructionQueue.Size = new System.Drawing.Size(202, 114);
+            this.instructionQueue.Size = new System.Drawing.Size(210, 114);
             this.instructionQueue.TabIndex = 0;
             this.instructionQueue.UseCompatibleStateImageBehavior = false;
             this.instructionQueue.SelectedIndexChanged += new System.EventHandler(this.instructionQueue_SelectedIndexChanged);
@@ -158,7 +155,7 @@
             // label1
             // 
             this.label1.AutoSize = true;
-            this.label1.Location = new System.Drawing.Point(144, 57);
+            this.label1.Location = new System.Drawing.Point(142, 57);
             this.label1.Name = "label1";
             this.label1.Size = new System.Drawing.Size(91, 13);
             this.label1.TabIndex = 2;
@@ -166,18 +163,18 @@
             // 
             // loadBuffers
             // 
-            this.loadBuffers.Location = new System.Drawing.Point(133, 214);
+            this.loadBuffers.Location = new System.Drawing.Point(130, 214);
             this.loadBuffers.Name = "loadBuffers";
-            this.loadBuffers.Size = new System.Drawing.Size(69, 114);
+            this.loadBuffers.Size = new System.Drawing.Size(120, 114);
             this.loadBuffers.TabIndex = 0;
             this.loadBuffers.UseCompatibleStateImageBehavior = false;
             this.loadBuffers.SelectedIndexChanged += new System.EventHandler(this.loadBuffers_SelectedIndexChanged);
             // 
             // storeBuffers
             // 
-            this.storeBuffers.Location = new System.Drawing.Point(25, 214);
+            this.storeBuffers.Location = new System.Drawing.Point(4, 214);
             this.storeBuffers.Name = "storeBuffers";
-            this.storeBuffers.Size = new System.Drawing.Size(102, 114);
+            this.storeBuffers.Size = new System.Drawing.Size(128, 114);
             this.storeBuffers.TabIndex = 0;
             this.storeBuffers.UseCompatibleStateImageBehavior = false;
             this.storeBuffers.SelectedIndexChanged += new System.EventHandler(this.loadBuffers_SelectedIndexChanged);
@@ -295,11 +292,8 @@
             this.lineShape7,
             this.lineShape6,
             this.lineShape5,
-            this.lineShape4,
-            this.lineShape3,
-            this.lineShape2,
-            this.lineShape1});
-            this.shapeContainer1.Size = new System.Drawing.Size(731, 434);
+            this.lineShape4});
+            this.shapeContainer1.Size = new System.Drawing.Size(837, 434);
             this.shapeContainer1.TabIndex = 5;
             this.shapeContainer1.TabStop = false;
             // 
@@ -530,16 +524,16 @@
             // lineShape55
             // 
             this.lineShape55.Name = "lineShape55";
-            this.lineShape55.X1 = 61;
-            this.lineShape55.X2 = 12;
+            this.lineShape55.X1 = 51;
+            this.lineShape55.X2 = 2;
             this.lineShape55.Y1 = 202;
             this.lineShape55.Y2 = 204;
             // 
             // lineShape54
             // 
             this.lineShape54.Name = "lineShape54";
-            this.lineShape54.X1 = 11;
-            this.lineShape54.X2 = 11;
+            this.lineShape54.X1 = 1;
+            this.lineShape54.X2 = 1;
             this.lineShape54.Y1 = 412;
             this.lineShape54.Y2 = 205;
             // 
@@ -884,24 +878,24 @@
             // lineShape11
             // 
             this.lineShape11.Name = "lineShape11";
-            this.lineShape11.X1 = 61;
-            this.lineShape11.X2 = 61;
+            this.lineShape11.X1 = 51;
+            this.lineShape11.X2 = 51;
             this.lineShape11.Y1 = 212;
             this.lineShape11.Y2 = 202;
             // 
             // lineShape10
             // 
             this.lineShape10.Name = "lineShape10";
-            this.lineShape10.X1 = 60;
-            this.lineShape10.X2 = 56;
+            this.lineShape10.X1 = 50;
+            this.lineShape10.X2 = 46;
             this.lineShape10.Y1 = 213;
             this.lineShape10.Y2 = 205;
             // 
             // lineShape9
             // 
             this.lineShape9.Name = "lineShape9";
-            this.lineShape9.X1 = 61;
-            this.lineShape9.X2 = 65;
+            this.lineShape9.X1 = 51;
+            this.lineShape9.X2 = 55;
             this.lineShape9.Y1 = 214;
             this.lineShape9.Y2 = 206;
             // 
@@ -945,34 +939,10 @@
             this.lineShape4.Y1 = 150;
             this.lineShape4.Y2 = 140;
             // 
-            // lineShape3
-            // 
-            this.lineShape3.Name = "lineShape3";
-            this.lineShape3.X1 = 318;
-            this.lineShape3.X2 = 314;
-            this.lineShape3.Y1 = 25;
-            this.lineShape3.Y2 = 17;
-            // 
-            // lineShape2
-            // 
-            this.lineShape2.Name = "lineShape2";
-            this.lineShape2.X1 = 319;
-            this.lineShape2.X2 = 323;
-            this.lineShape2.Y1 = 26;
-            this.lineShape2.Y2 = 18;
-            // 
-            // lineShape1
-            // 
-            this.lineShape1.Name = "lineShape1";
-            this.lineShape1.X1 = 318;
-            this.lineShape1.X2 = 318;
-            this.lineShape1.Y1 = 26;
-            this.lineShape1.Y2 = 1;
-            // 
             // label4
             // 
             this.label4.AutoSize = true;
-            this.label4.Location = new System.Drawing.Point(127, 136);
+            this.label4.Location = new System.Drawing.Point(116, 136);
             this.label4.Name = "label4";
             this.label4.Size = new System.Drawing.Size(115, 13);
             this.label4.TabIndex = 6;
@@ -1014,25 +984,25 @@
             // 
             // fpRegisters
             // 
-            this.fpRegisters.Location = new System.Drawing.Point(488, 61);
+            this.fpRegisters.Location = new System.Drawing.Point(450, 61);
             this.fpRegisters.Name = "fpRegisters";
-            this.fpRegisters.Size = new System.Drawing.Size(220, 80);
+            this.fpRegisters.Size = new System.Drawing.Size(258, 80);
             this.fpRegisters.TabIndex = 10;
             this.fpRegisters.UseCompatibleStateImageBehavior = false;
             // 
             // reservationStation1
             // 
-            this.reservationStation1.Location = new System.Drawing.Point(319, 247);
+            this.reservationStation1.Location = new System.Drawing.Point(249, 247);
             this.reservationStation1.Name = "reservationStation1";
-            this.reservationStation1.Size = new System.Drawing.Size(136, 65);
+            this.reservationStation1.Size = new System.Drawing.Size(244, 81);
             this.reservationStation1.TabIndex = 11;
             this.reservationStation1.UseCompatibleStateImageBehavior = false;
             // 
             // reservationStation2
             // 
-            this.reservationStation2.Location = new System.Drawing.Point(519, 247);
+            this.reservationStation2.Location = new System.Drawing.Point(492, 247);
             this.reservationStation2.Name = "reservationStation2";
-            this.reservationStation2.Size = new System.Drawing.Size(136, 52);
+            this.reservationStation2.Size = new System.Drawing.Size(239, 67);
             this.reservationStation2.TabIndex = 12;
             this.reservationStation2.UseCompatibleStateImageBehavior = false;
             // 
@@ -1057,7 +1027,7 @@
             // label8
             // 
             this.label8.AutoSize = true;
-            this.label8.Location = new System.Drawing.Point(441, 315);
+            this.label8.Location = new System.Drawing.Point(439, 332);
             this.label8.Name = "label8";
             this.label8.Size = new System.Drawing.Size(105, 13);
             this.label8.TabIndex = 15;
@@ -1104,7 +1074,7 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(731, 434);
+            this.ClientSize = new System.Drawing.Size(837, 434);
             this.Controls.Add(this.ClockCount);
             this.Controls.Add(this.Clock);
             this.Controls.Add(this.label10);
@@ -1161,9 +1131,6 @@
         private Microsoft.VisualBasic.PowerPacks.LineShape lineShape6;
         private Microsoft.VisualBasic.PowerPacks.LineShape lineShape5;
         private Microsoft.VisualBasic.PowerPacks.LineShape lineShape4;
-        private Microsoft.VisualBasic.PowerPacks.LineShape lineShape3;
-        private Microsoft.VisualBasic.PowerPacks.LineShape lineShape2;
-        private Microsoft.VisualBasic.PowerPacks.LineShape lineShape1;
         private Microsoft.VisualBasic.PowerPacks.LineShape lineShape26;
         private Microsoft.VisualBasic.PowerPacks.LineShape lineShape25;
         private Microsoft.VisualBasic.PowerPacks.LineShape lineShape24;

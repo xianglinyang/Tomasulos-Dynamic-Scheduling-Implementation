@@ -6,11 +6,11 @@ namespace Tomasulo
     {
         public enum RSType { Load, Store, Add, Multiply };
         public List<Instruction.Opcodes> opCodes = new List<Instruction.Opcodes>();
-        public List<Operand> Qj = new List<Operand>();
-        public List<Operand> Qk = new List<Operand>();
+        public List<Operand> Vj = new List<Operand>();
+        public List<Operand> Vk = new List<Operand>();
         public List<Operand> dest = new List<Operand>();
-        public List<WaitInfo> Vj = new List<WaitInfo>();
-        public List<WaitInfo> Vk = new List<WaitInfo>();
+        public List<WaitInfo> Qj = new List<WaitInfo>();
+        public List<WaitInfo> Qk = new List<WaitInfo>();
         public List<int> addresses = new List<int>();
         public List<Instruction.State> states = new List<Instruction.State>();
         public List<int> remainingCycles = new List<int>();
@@ -28,16 +28,18 @@ namespace Tomasulo
 
             for (int i = 0; i < numToMake; i++)
             {
-                opCodes[i] = Instruction.Opcodes.UNINIT;
-                addresses[i] = 0;
-                busy[i] = false;
-                Qj[i] = null;
-                Qk[i] = null;
-                dest[i] = null;
-                states[i] = Instruction.State.Issue;
-                remainingCycles[i] = -1;
-                cyclesToComplete[i] = -1;
-                results[i] = -1;
+                opCodes.Add(Instruction.Opcodes.UNINIT);
+                addresses.Add(0);
+                busy.Add(false);
+                Qj.Add(null);
+                Qk.Add(null);
+                Vj.Add(null);
+                Vk.Add(null);
+                dest.Add(null);
+                states.Add(Instruction.State.Issue);
+                remainingCycles.Add(-1);
+                cyclesToComplete.Add(-1);
+                results.Add(-1);
             }
         }
 
@@ -64,24 +66,24 @@ namespace Tomasulo
 
             if (wsJ.waitState == WaitInfo.WaitState.Avail)
             {
-                Qj[index] = jReg;
-                Vj[index] = null;
+                Vj[index] = jReg;
+                Qj[index] = null;
             }
             else
             {
-                Qj[index] = null;
-                Vj[index] = wsJ;
+                Vj[index] = null;
+                Qj[index] = wsJ;
             }
 
             if (wsK.waitState == WaitInfo.WaitState.Avail)
             {
-                Qk[index] = kReg;
-                Vk[index] = null;
+                Vk[index] = kReg;
+                Qk[index] = null;
             }
             else
             {
-                Qk[index] = null;
-                Vk[index] = wsK;
+                Vk[index] = null;
+                Qk[index] = wsK;
             }
         }
 
@@ -91,8 +93,8 @@ namespace Tomasulo
         }
 
         public int RunExecution(int index)
-        {   // -1 = not yet in exec, 0 = finished, > n means n cycles left.
-            if ((Qj[index] != null) && (Qk[index] != null))
+        {   // -1 = not yet in exec, 0 = finished, > 0 means n cycles left.
+            if ((Vj[index] != null) && (Vk[index] != null))
             {   // Operands Available.
                 if (remainingCycles[index] == -1)
                 {
@@ -118,6 +120,22 @@ namespace Tomasulo
                 return -1;
             }
             return -1;
+        }
+
+        public void Free(int index)
+        {
+            opCodes[index] = Instruction.Opcodes.UNINIT;
+            addresses[index] = 0;
+            busy[index] = false;
+            Qj[index] = null;
+            Qk[index] = null;
+            Vj[index] = null;
+            Vk[index] = null;
+            dest[index] = null;
+            states[index] = Instruction.State.Issue;
+            remainingCycles[index] = -1;
+            cyclesToComplete[index] = -1;
+            results[index] = -1;
         }
 
         private void GetResult(int index)

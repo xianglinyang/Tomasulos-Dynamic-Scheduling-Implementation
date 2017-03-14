@@ -10,6 +10,7 @@ namespace Tomasulo
         ReservationStation loadStation, storeStation, addStation, multiplyStation;
         FloatingPointRegisters floatRegs;
         IntegerRegisters intRegs;
+        FloatingPointMemoryArrary memLocs;
         private List<Instruction> instructions = new List<Instruction>();
         private int clocks = 0;
 
@@ -26,10 +27,10 @@ namespace Tomasulo
         private void Form1_Load(object sender, EventArgs e)
         {
             // Temporary. Will eventually get from user.
-            instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.LD, "F6", "32(R2)", null));
-            instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.LD, "F2", "44(R3)", null));
+            //instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.LD, "F6", "32(R2)", null));
+            //instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.LD, "F2", "44(R3)", null));
             instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.MULD, "F0", "F2", "F4"));
-            instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.SUBD, "F8", "F2", "F6"));
+            instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.SUBD, "F8", "F0", "F6"));
             instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.DIVD, "F10", "F0", "F6"));
             instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.ADDD, "F6", "F8", "F2"));
 
@@ -40,8 +41,11 @@ namespace Tomasulo
 
             floatRegs = new FloatingPointRegisters(30);
             intRegs = new IntegerRegisters(30);
+            memLocs = new FloatingPointMemoryArrary(64);
 
             UpdateInstructionQueueBox();
+            UpdateReservationStationBoxes();
+            UpdateFPRegisterBox();
             UpdateClockCountBox();
         }
 
@@ -65,21 +69,166 @@ namespace Tomasulo
             }
         }
 
+        // Fill box with info in instructions.
+        private void UpdateReservationStationBoxes()
+        {
+            // Add.
+            reservationStation1.Clear();
+            reservationStation1.View = View.Details;
+            reservationStation1.Columns.Add("Name", 50);
+            reservationStation1.Columns.Add("Busy", 35);
+            reservationStation1.Columns.Add("Op", 50);
+            reservationStation1.Columns.Add("Vj", 50);
+            reservationStation1.Columns.Add("Vk", 50);
+            reservationStation1.Columns.Add("Qj", 50);
+            reservationStation1.Columns.Add("Qk", 50);
+            reservationStation1.Columns.Add("A", 50);
+
+            for (int i = 0; i < addStation.numBuffers; i++)
+            {
+                ListViewItem row = new ListViewItem("Add" + (i + 1).ToString());
+                row.SubItems.Add(addStation.IsBusy(i).ToString().Substring(0, 1));
+                row.SubItems.Add(addStation.opCodes[i].ToString());
+                row.SubItems.Add((addStation.Vj[i] == null) ? "" :
+                    addStation.Vj[i].PrintString());
+                row.SubItems.Add((addStation.Vk[i] == null) ? "" :
+                    addStation.Vk[i].PrintString());
+                row.SubItems.Add((addStation.Qj[i] == null) ? "" :
+                    addStation.Qj[i].waitState.ToString().Substring(0, 1) + addStation.Qj[i].value);
+                row.SubItems.Add((addStation.Qk[i] == null) ? "" :
+                    addStation.Qk[i].waitState.ToString().Substring(0, 1) + addStation.Qk[i].value);
+                row.SubItems.Add(addStation.results[i].ToString());
+                reservationStation1.Items.Add(row);
+            }
+
+            // Multiply.
+            reservationStation2.Clear();
+            reservationStation2.View = View.Details;
+            reservationStation2.Columns.Add("Name", 50);
+            reservationStation2.Columns.Add("Busy", 35);
+            reservationStation2.Columns.Add("Op", 50);
+            reservationStation2.Columns.Add("Vj", 50);
+            reservationStation2.Columns.Add("Vk", 50);
+            reservationStation2.Columns.Add("Qj", 50);
+            reservationStation2.Columns.Add("Qk", 50);
+            reservationStation2.Columns.Add("A", 50);
+
+            for (int i = 0; i < multiplyStation.numBuffers; i++)
+            {
+                ListViewItem row = new ListViewItem("Mult" + (i + 1).ToString());
+                row.SubItems.Add(multiplyStation.IsBusy(i).ToString().Substring(0, 1));
+                row.SubItems.Add(multiplyStation.opCodes[i].ToString());
+                row.SubItems.Add((multiplyStation.Vj[i] == null) ? "" :
+                    multiplyStation.Vj[i].PrintString());
+                row.SubItems.Add((multiplyStation.Vk[i] == null) ? "" :
+                    multiplyStation.Vk[i].PrintString());
+                row.SubItems.Add((multiplyStation.Qj[i] == null) ? "" :
+                    multiplyStation.Qj[i].waitState.ToString().Substring(0, 1));
+                row.SubItems.Add((multiplyStation.Qk[i] == null) ? "" :
+                    multiplyStation.Qk[i].waitState.ToString().Substring(0, 1));
+                row.SubItems.Add(multiplyStation.results[i].ToString());
+                reservationStation2.Items.Add(row);
+            }
+
+            // Load.
+            loadBuffers.Clear();
+            loadBuffers.View = View.Details;
+            loadBuffers.Columns.Add("Name", 50);
+            loadBuffers.Columns.Add("Busy", 35);
+            loadBuffers.Columns.Add("Addr", 50);
+            
+            for (int i = 0; i < loadStation.numBuffers; i++)
+            {
+                ListViewItem row = new ListViewItem("Load" + (i + 1).ToString());
+                row.SubItems.Add(loadStation.IsBusy(i).ToString().Substring(0, 1));
+                row.SubItems.Add(loadStation.addresses[i].ToString());
+                loadBuffers.Items.Add(row);
+            }
+
+            // Store.
+            storeBuffers.Clear();
+            storeBuffers.View = View.Details;
+            storeBuffers.Columns.Add("Name", 40);
+            storeBuffers.Columns.Add("Busy", 35);
+            storeBuffers.Columns.Add("Addr", 50);
+            storeBuffers.Columns.Add("Q", 50);
+            storeBuffers.Columns.Add("V", 50);
+
+            for (int i = 0; i < loadStation.numBuffers; i++)
+            {
+                ListViewItem row = new ListViewItem("Store" + (i + 1).ToString());
+                row.SubItems.Add(storeStation.IsBusy(i).ToString().Substring(0, 1));
+                row.SubItems.Add(storeStation.addresses[i].ToString());
+                row.SubItems.Add((storeStation.Qj[i] == null) ? "" :
+                    storeStation.Qj[i].waitState.ToString().Substring(0, 1) + storeStation.Qj[i].value);
+                row.SubItems.Add((storeStation.Vj[i] == null) ? "" :
+                    storeStation.Qj[i].waitState.ToString().Substring(0, 1));
+                storeBuffers.Items.Add(row);
+            }
+        }
+
+        private void UpdateFPRegisterBox()
+        {
+            fpRegisters.Clear();
+            fpRegisters.View = View.Details;
+            fpRegisters.Columns.Add("");
+            for (int i = 0; i < floatRegs.GetNumRegs(); i++)
+            {
+                fpRegisters.Columns.Add("F" + i.ToString());
+            }
+
+            ListViewItem row = new ListViewItem("FU");
+            for (int i = 0; i < floatRegs.GetNumRegs(); i++)
+            {
+                switch (floatRegs.Get(i).waitState)
+                {
+                    case WaitInfo.WaitState.AddStation:
+                        row.SubItems.Add("Add" + (floatRegs.Get(i).value + 1).ToString());
+                        break;
+
+                    case WaitInfo.WaitState.Avail:
+                        row.SubItems.Add(floatRegs.Get(i).value.ToString());
+                        break;
+
+                    case WaitInfo.WaitState.Compute:
+                        row.SubItems.Add(floatRegs.Get(i).value.ToString());
+                        break;
+
+                    case WaitInfo.WaitState.LoadStation:
+                        row.SubItems.Add("Load" + (floatRegs.Get(i).value + 1).ToString());
+                        break;
+
+                    case WaitInfo.WaitState.MultStation:
+                        row.SubItems.Add("Mult" + (floatRegs.Get(i).value + 1).ToString());
+                        break;
+
+                    case WaitInfo.WaitState.StoreStation:
+                        row.SubItems.Add("Store" + (floatRegs.Get(i).value + 1).ToString());
+                        break;
+                }
+            }
+            fpRegisters.Items.Add(row);
+        }
+
         // This is the main method that will run a cycle using Tomasulo's Algorithm.
         private void RunOneCycle()
-        {   // Do backwards so that only 1 stage is run on eac instruction per cycle.
+        {   // Do backwards so that only 1 stage is run on each instruction per cycle.
             Write();
             Execute();
             Issue();
+
+            UpdateInstructionQueueBox();
+            UpdateReservationStationBoxes();
+            UpdateFPRegisterBox();
         }
 
         private WaitInfo FindRegister(string name)
         {
-            if (name.Substring(0) == "F")
+            if (name.Substring(0, 1) == "F")
             {   // Floating Point.
                 return floatRegs.Get(Int32.Parse(name.Substring(1)));
             }
-            else if (name.Substring(0) == "R")
+            else if (name.Substring(0, 1) == "R")
             {   // Integer.
                 //jReg = intRegs.Get(Int32.Parse(instruction.j.Substring(1)));
                 return null;
@@ -181,7 +330,25 @@ namespace Tomasulo
             // Add Station.
             for (int i = 0; i < addStation.numBuffers; i++)
             {
-                addStation.RunExecution(i);
+                if (addStation.RunExecution(i) == -1)
+                {   // Check operand avalability.
+                    if (addStation.Qj[i] != null)
+                    {
+                        if (addStation.Qj[i].waitState == WaitInfo.WaitState.Avail)
+                        {
+                            addStation.Vj[i] = new Operand(Operand.OperandType.FloatReg, addStation.Qj[i].value);
+                            addStation.Qj[i] = null;
+                        }
+                    }
+                    if (addStation.Qk[i] != null)
+                    {
+                        if (addStation.Qk[i].waitState == WaitInfo.WaitState.Avail)
+                        {
+                            addStation.Vk[i] = new Operand(Operand.OperandType.FloatReg, addStation.Qk[i].value);
+                            addStation.Qk[i] = null;
+                        }
+                    }
+                }
             }
 
             // Multiply Station.
@@ -224,6 +391,7 @@ namespace Tomasulo
                     {
                         Console.WriteLine("Don't know what to do with result.");
                     }
+                    addStation.Free(i);
                 }
             }
 
@@ -246,6 +414,7 @@ namespace Tomasulo
                     {
                         Console.WriteLine("Don't know what to do with result.");
                     }
+                    multiplyStation.Free(i);
                 }
             }
 
@@ -268,6 +437,7 @@ namespace Tomasulo
                     {
                         Console.WriteLine("Don't know what to do with result.");
                     }
+                    loadStation.Free(i);
                 }
             }
 
@@ -276,8 +446,8 @@ namespace Tomasulo
             {
                 if (storeStation.results[i] != -1)
                 {   // Ready.
-                    //memLocs.Set(WaitInfo.WaitState.Avail, storeStation.results[i],
-                    //   (int) storeStation.dest[i].opVal);
+                    memLocs.Set(storeStation.results[i], (int)storeStation.dest[i].opVal);
+                    storeStation.Free(i);
                 }
             }
         }

@@ -10,8 +10,7 @@ namespace Tomasulo
         {
             for (int i = 0; i < numToCreate; i++)
             {
-                fpRegs[i].value = 0.0f;
-                fpRegs[i].waitState = WaitInfo.WaitState.Avail;
+                fpRegs.Add(new WaitInfo(0.0f, WaitInfo.WaitState.Avail));
             }
         }
 
@@ -24,6 +23,11 @@ namespace Tomasulo
         public WaitInfo Get(int index)
         {
             return fpRegs[index];
+        }
+
+        public int GetNumRegs()
+        {
+            return fpRegs.Count;
         }
     }
 }

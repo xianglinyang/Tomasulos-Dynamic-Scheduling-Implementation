@@ -29,5 +29,29 @@
                 opVal = float.Parse(rawOperand);
             }
         }
+
+        public Operand(OperandType type, float val)
+        {
+            opType = type;
+            opVal = val;
+        }
+
+        public string PrintString()
+        {
+
+            switch (opType)
+            {
+                case OperandType.FloatReg:
+                    return "F" + opVal.ToString();
+                case OperandType.IntReg:
+                    return "R" + opVal.ToString();
+                case OperandType.Num:
+                    return opVal.ToString();
+                case OperandType.RegOffset:
+                    return opVal.ToString();
+                default:
+                    return opVal.ToString();
+            }
+        }
     }
 }
