@@ -36,6 +36,8 @@
                     instType = InstructionType.Multiply;
                     break;
                 case Opcodes.LD:
+                    instType = InstructionType.Load;
+                    break;
                 case Opcodes.SD:
                     instType = InstructionType.Store;
                     break;

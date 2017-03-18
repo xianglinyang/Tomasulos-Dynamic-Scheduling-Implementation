@@ -29,6 +29,10 @@ namespace Tomasulo
             // Temporary. Will eventually get from user.
             //instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.LD, "F6", "32(R2)", null));
             //instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.LD, "F2", "44(R3)", null));
+            instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.LD, "F6", "34+", "R2"));
+            instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.LD, "F2", "45+", "R3"));
+            instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.SD, "F2", "3", "R3"));
+            instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.LD, "F25", "3+", "0"));
             instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.MULD, "F0", "F2", "F4"));
             instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.SUBD, "F8", "F0", "F6"));
             instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.DIVD, "F10", "F0", "F6"));
@@ -40,8 +44,16 @@ namespace Tomasulo
             multiplyStation = new ReservationStation(2, ReservationStation.RSType.Multiply);
 
             floatRegs = new FloatingPointRegisters(30);
+            for (int i = 0; i < 30; i++)
+            {
+                floatRegs.Set(WaitInfo.WaitState.Avail, i + 1, i);
+            }
             intRegs = new IntegerRegisters(30);
             memLocs = new FloatingPointMemoryArrary(64);
+            for (int i = 0; i < 64; i++)
+            {
+                memLocs.Set(i + 1, i);
+            }
 
             UpdateInstructionQueueBox();
             UpdateReservationStationBoxes();
@@ -94,9 +106,9 @@ namespace Tomasulo
                 row.SubItems.Add((addStation.Vk[i] == null) ? "" :
                     addStation.Vk[i].PrintString());
                 row.SubItems.Add((addStation.Qj[i] == null) ? "" :
-                    addStation.Qj[i].waitState.ToString().Substring(0, 1) + addStation.Qj[i].value);
+                    addStation.Qj[i].waitState.ToString().Substring(0, 1) + (addStation.Qj[i].value + 1));
                 row.SubItems.Add((addStation.Qk[i] == null) ? "" :
-                    addStation.Qk[i].waitState.ToString().Substring(0, 1) + addStation.Qk[i].value);
+                    addStation.Qk[i].waitState.ToString().Substring(0, 1) + (addStation.Qk[i].value + 1));
                 row.SubItems.Add(addStation.results[i].ToString());
                 reservationStation1.Items.Add(row);
             }
@@ -123,9 +135,9 @@ namespace Tomasulo
                 row.SubItems.Add((multiplyStation.Vk[i] == null) ? "" :
                     multiplyStation.Vk[i].PrintString());
                 row.SubItems.Add((multiplyStation.Qj[i] == null) ? "" :
-                    multiplyStation.Qj[i].waitState.ToString().Substring(0, 1));
+                    multiplyStation.Qj[i].waitState.ToString().Substring(0, 1) + (multiplyStation.Qj[i].value + 1));
                 row.SubItems.Add((multiplyStation.Qk[i] == null) ? "" :
-                    multiplyStation.Qk[i].waitState.ToString().Substring(0, 1));
+                    multiplyStation.Qk[i].waitState.ToString().Substring(0, 1) + (multiplyStation.Qj[i].value + 1));
                 row.SubItems.Add(multiplyStation.results[i].ToString());
                 reservationStation2.Items.Add(row);
             }
@@ -154,15 +166,15 @@ namespace Tomasulo
             storeBuffers.Columns.Add("Q", 50);
             storeBuffers.Columns.Add("V", 50);
 
-            for (int i = 0; i < loadStation.numBuffers; i++)
+            for (int i = 0; i < storeStation.numBuffers; i++)
             {
                 ListViewItem row = new ListViewItem("Store" + (i + 1).ToString());
                 row.SubItems.Add(storeStation.IsBusy(i).ToString().Substring(0, 1));
                 row.SubItems.Add(storeStation.addresses[i].ToString());
                 row.SubItems.Add((storeStation.Qj[i] == null) ? "" :
-                    storeStation.Qj[i].waitState.ToString().Substring(0, 1) + storeStation.Qj[i].value);
+                    storeStation.Qj[i].waitState.ToString().Substring(0, 1) + (storeStation.Qj[i].value + 1));
                 row.SubItems.Add((storeStation.Vj[i] == null) ? "" :
-                    storeStation.Qj[i].waitState.ToString().Substring(0, 1));
+                    storeStation.Vj[i].PrintString());
                 storeBuffers.Items.Add(row);
             }
         }
@@ -231,11 +243,11 @@ namespace Tomasulo
             else if (name.Substring(0, 1) == "R")
             {   // Integer.
                 //jReg = intRegs.Get(Int32.Parse(instruction.j.Substring(1)));
-                return null;
+                return intRegs.Get(Int32.Parse(name.Substring(1)));
             }
             else if (name[name.Length - 1] == '+')
             {   // Number offset.
-                return new WaitInfo(float.Parse(name.Substring(0, name.Length - 2)),
+                return new WaitInfo(float.Parse(name.Substring(0, name.Length - 1)),
                     WaitInfo.WaitState.Avail);
             }
             else
@@ -271,6 +283,16 @@ namespace Tomasulo
                             bufNum, jReg, kReg, wsJ, wsK);
 
                         // Set Dest Reg.
+                        if (instruction.dest.Substring(0, 1) == "F")
+                        {   // Float.
+                            floatRegs.Set(WaitInfo.WaitState.AddStation, bufNum,
+                            Int32.Parse(instruction.dest.Substring(1)));
+                        }
+                        else
+                        {   // Int.
+                            intRegs.Set(WaitInfo.WaitState.AddStation, bufNum,
+                            Int32.Parse(instruction.dest.Substring(1)));
+                        }
                         floatRegs.Set(WaitInfo.WaitState.AddStation, bufNum,
                             Int32.Parse(instruction.dest.Substring(1)));
                     }
@@ -288,8 +310,16 @@ namespace Tomasulo
                             bufNum, jReg, kReg, wsJ, wsK);
 
                         // Set Dest Reg.
-                        floatRegs.Set(WaitInfo.WaitState.MultStation, bufNum,
+                        if (instruction.dest.Substring(0, 1) == "F")
+                        {
+                            floatRegs.Set(WaitInfo.WaitState.MultStation, bufNum,
                             Int32.Parse(instruction.dest.Substring(1)));
+                        }
+                        else
+                        {
+                            intRegs.Set(WaitInfo.WaitState.MultStation, bufNum,
+                            Int32.Parse(instruction.dest.Substring(1)));
+                        }
                     }
                     else
                     {
@@ -303,6 +333,18 @@ namespace Tomasulo
                         // Issue.
                         loadStation.PutInBuffer(instructionUnit.GetInstruction(),
                             bufNum, jReg, kReg, wsJ, wsK);
+
+                        // Set Dest Reg.
+                        if (instruction.dest.Substring(0, 1) == "F")
+                        {
+                            floatRegs.Set(WaitInfo.WaitState.LoadStation, bufNum,
+                            Int32.Parse(instruction.dest.Substring(1)));
+                        }
+                        else
+                        {
+                            intRegs.Set(WaitInfo.WaitState.LoadStation, bufNum,
+                            Int32.Parse(instruction.dest.Substring(1)));
+                        }
                     }
                     else
                     {
@@ -336,7 +378,7 @@ namespace Tomasulo
                     {
                         if (addStation.Qj[i].waitState == WaitInfo.WaitState.Avail)
                         {
-                            addStation.Vj[i] = new Operand(Operand.OperandType.FloatReg, addStation.Qj[i].value);
+                            addStation.Vj[i] = new Operand(Operand.OperandType.Num, addStation.Qj[i].value);
                             addStation.Qj[i] = null;
                         }
                     }
@@ -344,7 +386,7 @@ namespace Tomasulo
                     {
                         if (addStation.Qk[i].waitState == WaitInfo.WaitState.Avail)
                         {
-                            addStation.Vk[i] = new Operand(Operand.OperandType.FloatReg, addStation.Qk[i].value);
+                            addStation.Vk[i] = new Operand(Operand.OperandType.Num, addStation.Qk[i].value);
                             addStation.Qk[i] = null;
                         }
                     }
@@ -354,19 +396,95 @@ namespace Tomasulo
             // Multiply Station.
             for (int i = 0; i < multiplyStation.numBuffers; i++)
             {
-                multiplyStation.RunExecution(i);
+                if (multiplyStation.RunExecution(i) == -1)
+                {   // Check operand availability.
+                    if (multiplyStation.Qj[i] != null)
+                    {
+                        if (multiplyStation.Qj[i].waitState == WaitInfo.WaitState.Avail)
+                        {
+                            multiplyStation.Vj[i] = new Operand(Operand.OperandType.Num, multiplyStation.Qj[i].value);
+                            multiplyStation.Qj[i] = null;
+                        }
+                    }
+                    if (multiplyStation.Qk[i] != null)
+                    {
+                        if (multiplyStation.Qk[i].waitState == WaitInfo.WaitState.Avail)
+                        {
+                            multiplyStation.Vk[i] = new Operand(Operand.OperandType.Num, multiplyStation.Qk[i].value);
+                            multiplyStation.Qk[i] = null;
+                        }
+                    }
+                }
             }
 
             // Load Station.
             for (int i = 0; i < loadStation.numBuffers; i++)
             {
-                loadStation.RunExecution(i);
+                if (loadStation.addrReady[i])
+                {   // Address Computed.
+                    loadStation.GetFromMemory(i, memLocs);
+                }
+                else
+                {   // Compute Address.
+                    if (loadStation.RunExecution(i) == -1)
+                    {   // Check operand availability.
+                        if (loadStation.Qj[i] != null)
+                        {
+                            if (loadStation.Qj[i].waitState == WaitInfo.WaitState.Avail)
+                            {
+                                loadStation.Vj[i] = new Operand(Operand.OperandType.Num, loadStation.Qj[i].value);
+                                loadStation.Qj[i] = null;
+                            }
+                        }
+                        if (loadStation.Qk[i] != null)
+                        {
+                            if (loadStation.Qk[i].waitState == WaitInfo.WaitState.Avail)
+                            {
+                                loadStation.Vk[i] = new Operand(Operand.OperandType.Num, loadStation.Qk[i].value);
+                                loadStation.Qk[i] = null;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        loadStation.addresses[i] = loadStation.ComputeAddress(intRegs, i);
+                        loadStation.cyclesToComplete[i] = 2;    // Arbitrary, make user-settable later.
+                        loadStation.remainingCycles[i] = -1;
+                        loadStation.isReady[i] = false;
+                        loadStation.addrReady[i] = true;
+                    }
+                }
             }
 
             // Store Station.
             for (int i = 0; i < storeStation.numBuffers; i++)
             {
-                storeStation.RunExecution(i);
+                if (storeStation.addrReady[i])
+                {   // Address Computed.
+                    storeStation.BufferValue(i, floatRegs, intRegs);
+                }
+                else
+                {   // Compute Address.
+                    if (storeStation.RunExecution(i) == -1)
+                    {   // Check operand availability.
+                        if (storeStation.Qj[i] != null)
+                        {
+                            if (storeStation.Qj[i].waitState == WaitInfo.WaitState.Avail)
+                            {
+                                storeStation.Vj[i] = new Operand(Operand.OperandType.Num, storeStation.Qj[i].value);
+                                storeStation.Qj[i] = null;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        storeStation.addresses[i] = storeStation.ComputeAddress(intRegs, i);
+                        storeStation.cyclesToComplete[i] = 2;   // Arbitrary, make user-settable later.
+                        storeStation.remainingCycles[i] = -1;
+                        storeStation.isReady[i] = false;
+                        storeStation.addrReady[i] = true;
+                    }
+                }
             }
         }
 
@@ -375,16 +493,16 @@ namespace Tomasulo
             // Add Results.
             for (int i = 0; i < addStation.numBuffers; i++)
             {
-                if (addStation.results[i] != -1)
-                {   // Ready.
+                if (addStation.isReady[i])
+                {
                     if (addStation.dest[i].opType == Operand.OperandType.FloatReg)
                     {
-                        floatRegs.Set(WaitInfo.WaitState.Avail, addStation.results[i],
+                        floatRegs.Set(WaitInfo.WaitState.Avail, addStation.Compute(floatRegs, intRegs, i),
                             (int) addStation.dest[i].opVal);
                     }
                     else if (addStation.dest[i].opType == Operand.OperandType.IntReg)
                     {
-                        intRegs.Set(WaitInfo.WaitState.Avail, addStation.results[i],
+                        intRegs.Set(WaitInfo.WaitState.Avail, (int)addStation.Compute(floatRegs, intRegs, i),
                             (int) addStation.dest[i].opVal);
                     }
                     else
@@ -398,16 +516,16 @@ namespace Tomasulo
             // Multiply Results.
             for (int i = 0; i < multiplyStation.numBuffers; i++)
             {
-                if (multiplyStation.results[i] != -1)
-                {   // Ready.
+                if (multiplyStation.isReady[i])
+                {
                     if (multiplyStation.dest[i].opType == Operand.OperandType.FloatReg)
                     {
-                        floatRegs.Set(WaitInfo.WaitState.Avail, multiplyStation.results[i],
+                        floatRegs.Set(WaitInfo.WaitState.Avail, multiplyStation.Compute(floatRegs, intRegs, i),
                             (int) multiplyStation.dest[i].opVal);
                     }
                     else if (multiplyStation.dest[i].opType == Operand.OperandType.IntReg)
                     {
-                        intRegs.Set(WaitInfo.WaitState.Avail, multiplyStation.results[i],
+                        intRegs.Set(WaitInfo.WaitState.Avail, (int) multiplyStation.Compute(floatRegs, intRegs, i),
                             (int) multiplyStation.dest[i].opVal);
                     }
                     else
@@ -418,19 +536,19 @@ namespace Tomasulo
                 }
             }
 
-            // Load Results.
-            for (int i = 0; i < loadStation.numBuffers; i++)
-            {
-                if (loadStation.results[i] != -1)
-                {   // Ready.
+                // Load Results.
+                for (int i = 0; i < loadStation.numBuffers; i++)
+                {
+                if (loadStation.isReady[i])
+                {
                     if (loadStation.dest[i].opType == Operand.OperandType.FloatReg)
                     {
-                        floatRegs.Set(WaitInfo.WaitState.Avail, loadStation.results[i],
+                        floatRegs.Set(WaitInfo.WaitState.Avail, memLocs.Get(loadStation.addresses[i]),
                             (int) loadStation.dest[i].opVal);
                     }
                     else if (loadStation.dest[i].opType == Operand.OperandType.IntReg)
                     {
-                        intRegs.Set(WaitInfo.WaitState.Avail, loadStation.results[i],
+                        intRegs.Set(WaitInfo.WaitState.Avail, (int) memLocs.Get(loadStation.addresses[i]),
                             (int) loadStation.dest[i].opVal);
                     }
                     else
@@ -441,16 +559,16 @@ namespace Tomasulo
                 }
             }
 
-            // Store Results.
-            for (int i = 0; i < loadStation.numBuffers; i++)
-            {
-                if (storeStation.results[i] != -1)
-                {   // Ready.
-                    memLocs.Set(storeStation.results[i], (int)storeStation.dest[i].opVal);
-                    storeStation.Free(i);
+                // Store Results.
+                for (int i = 0; i < loadStation.numBuffers; i++)
+                {
+                    if (storeStation.isReady[i])
+                    {   // Ready.
+                        memLocs.Set(storeStation.results[i], (int) storeStation.addresses[i]);
+                        storeStation.Free(i);
+                    }
                 }
             }
-        }
 
         private void UpdateClockCountBox()
         {

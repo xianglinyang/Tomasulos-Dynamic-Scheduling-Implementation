@@ -21,7 +21,12 @@
             else if (rawOperand[rawOperand.Length - 1] == '+')
             {   // Register Offset
                 opType = OperandType.RegOffset;
-                opVal = float.Parse(rawOperand.Substring(0, rawOperand.Length - 2));
+                opVal = float.Parse(rawOperand.Substring(0, rawOperand.Length - 1));
+            }
+            else if (rawOperand[rawOperand.Length - 1] == '-')
+            {   // Register Offset
+                opType = OperandType.RegOffset;
+                opVal = -1 * float.Parse(rawOperand.Substring(0, rawOperand.Length - 1));
             }
             else
             {   // Plain Number

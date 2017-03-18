@@ -15,7 +15,9 @@ namespace Tomasulo
         public List<Instruction.State> states = new List<Instruction.State>();
         public List<int> remainingCycles = new List<int>();
         public List<int> cyclesToComplete = new List<int>();
-        public List<int> results = new List<int>();
+        public List<float> results = new List<float>();
+        public List<bool> isReady = new List<bool>();
+        public List<bool> addrReady = new List<bool>();
         public int numBuffers = 2;
 
         private List<bool> busy = new List<bool>();
@@ -29,7 +31,7 @@ namespace Tomasulo
             for (int i = 0; i < numToMake; i++)
             {
                 opCodes.Add(Instruction.Opcodes.UNINIT);
-                addresses.Add(0);
+                addresses.Add(-1);
                 busy.Add(false);
                 Qj.Add(null);
                 Qk.Add(null);
@@ -40,6 +42,8 @@ namespace Tomasulo
                 remainingCycles.Add(-1);
                 cyclesToComplete.Add(-1);
                 results.Add(-1);
+                isReady.Add(false);
+                addrReady.Add(false);
             }
         }
 
@@ -66,7 +70,7 @@ namespace Tomasulo
 
             if (wsJ.waitState == WaitInfo.WaitState.Avail)
             {
-                Vj[index] = jReg;
+                Vj[index] = new Operand(Operand.OperandType.Num, wsJ.value);
                 Qj[index] = null;
             }
             else
@@ -77,7 +81,7 @@ namespace Tomasulo
 
             if (wsK.waitState == WaitInfo.WaitState.Avail)
             {
-                Vk[index] = kReg;
+                Vk[index] = new Operand(Operand.OperandType.Num, wsK.value);
                 Qk[index] = null;
             }
             else
@@ -105,8 +109,8 @@ namespace Tomasulo
                 {
                     if (remainingCycles[index] == 0)
                     {
+                        isReady[index] = true;
                         states[index] = Instruction.State.Exec_Fin;
-                        GetResult(index);
                         return 0;
                     }
                     else
@@ -125,7 +129,7 @@ namespace Tomasulo
         public void Free(int index)
         {
             opCodes[index] = Instruction.Opcodes.UNINIT;
-            addresses[index] = 0;
+            addresses[index] = -1;
             busy[index] = false;
             Qj[index] = null;
             Qk[index] = null;
@@ -136,11 +140,132 @@ namespace Tomasulo
             remainingCycles[index] = -1;
             cyclesToComplete[index] = -1;
             results[index] = -1;
+            isReady[index] = false;
+            addrReady[index] = false;
         }
 
-        private void GetResult(int index)
-        {   // Will make this actually compute results.
-            results[index] = 0;
+        public int ComputeAddress(IntegerRegisters regs, int index)
+        {
+            int jVal = 0, kVal = 0;
+
+            if (Vj[index].opType == Operand.OperandType.IntReg)
+            {
+                jVal = (int) regs.Get((int) Vj[index].opVal).value;
+            }
+            else if (Vj[index].opType == Operand.OperandType.Num)
+            {
+                jVal = (int) Vj[index].opVal;
+            }
+
+            if (Vk[index].opType == Operand.OperandType.IntReg)
+            {
+                kVal = (int) regs.Get((int) Vk[index].opVal).value;
+            }
+            else if (Vk[index].opType == Operand.OperandType.Num)
+            {
+                kVal = (int) Vk[index].opVal;
+            }
+            
+            return jVal + kVal;
+        }
+
+        public int GetFromMemory(int index, FloatingPointMemoryArrary memory)
+        {
+            if (remainingCycles[index] == -1)
+            {
+                remainingCycles[index] = cyclesToComplete[index];
+                states[index] = Instruction.State.Exec_Inprog;
+                return remainingCycles[index]--;
+            }
+            else
+            {
+                if (remainingCycles[index] == 0)
+                {
+                    isReady[index] = true;
+                    states[index] = Instruction.State.Exec_Fin;
+                    return 0;
+                }
+                else
+                {
+                    return remainingCycles[index]--;
+                }
+            }
+        }
+
+        public float Compute(FloatingPointRegisters floatRegs, IntegerRegisters intRegs, int index)
+        {
+            float jVal = 0, kVal = 0;
+
+            // Get Operands.
+            if (Vj[index].opType == Operand.OperandType.FloatReg)
+            {
+                jVal = floatRegs.Get((int) Vj[index].opVal).value;
+            }
+            else if (Vj[index].opType == Operand.OperandType.IntReg)
+            {
+                jVal = intRegs.Get((int) Vj[index].opVal).value;
+            }
+            else if (Vj[index].opType == Operand.OperandType.Num)
+            {
+                jVal = Vj[index].opVal;
+            }
+
+            if (Vk[index].opType == Operand.OperandType.FloatReg)
+            {
+                kVal = floatRegs.Get((int) Vk[index].opVal).value;
+            }
+            else if (Vk[index].opType == Operand.OperandType.IntReg)
+            {
+                kVal = intRegs.Get((int) Vk[index].opVal).value;
+            }
+            else if (Vk[index].opType == Operand.OperandType.Num)
+            {
+                kVal = Vk[index].opVal;
+            }
+            
+            // Compute Result
+            switch (opCodes[index])
+            {
+                case Instruction.Opcodes.ADDD:
+                    return jVal + kVal;
+
+                case Instruction.Opcodes.SUBD:
+                    return jVal - kVal;
+
+                case Instruction.Opcodes.MULD:
+                    return jVal * kVal;
+
+                case Instruction.Opcodes.DIVD:
+                    return jVal / kVal;
+
+                default:
+                    return 0;
+            }
+        }
+
+        public void BufferValue(int index, FloatingPointRegisters fRegs, IntegerRegisters iRegs)
+        {
+            switch (dest[index].opType)
+            {
+                case Operand.OperandType.FloatReg:
+                    if (fRegs.Get((int) dest[index].opVal).waitState == WaitInfo.WaitState.Avail)
+                    {
+                        results[index] = fRegs.Get((int)dest[index].opVal).value;
+                        isReady[index] = true;
+                    }
+                    break;
+
+                case Operand.OperandType.IntReg:
+                    if (iRegs.Get((int) dest[index].opVal).waitState == WaitInfo.WaitState.Avail)
+                    {
+                        results[index] = iRegs.Get((int) dest[index].opVal).value;
+                        isReady[index] = true;
+                    }
+                    break;
+
+                default:
+                    break;
+            }
         }
     }
 }
