@@ -18,6 +18,7 @@ namespace Tomasulo
         public List<float> results = new List<float>();
         public List<bool> isReady = new List<bool>();
         public List<bool> addrReady = new List<bool>();
+        public List<int> instrNum = new List<int>();
         public int numBuffers = 2;
 
         private List<bool> busy = new List<bool>();
@@ -44,6 +45,7 @@ namespace Tomasulo
                 results.Add(-1);
                 isReady.Add(false);
                 addrReady.Add(false);
+                instrNum.Add(-1);
             }
         }
 

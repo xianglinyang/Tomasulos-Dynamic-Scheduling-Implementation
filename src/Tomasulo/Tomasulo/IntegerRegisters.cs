@@ -24,5 +24,10 @@ namespace Tomasulo
         {
             return intRegs[index];
         }
+
+        public int GetNumRegs()
+        {
+            return intRegs.Count;
+        }
     }
 }

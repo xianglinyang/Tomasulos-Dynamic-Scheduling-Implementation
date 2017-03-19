@@ -11,8 +11,11 @@ namespace Tomasulo
         FloatingPointRegisters floatRegs;
         IntegerRegisters intRegs;
         FloatingPointMemoryArrary memLocs;
-        private List<Instruction> instructions = new List<Instruction>();
-        private int clocks = 0;
+        private List<Instruction> issuedInstructions = new List<Instruction>();
+        private int[] issueClocks;
+        private int [] executeClocks;
+        private int [] writeClocks;
+        private int clocks = 0, numIssued = 0;
 
         public Form1()
         {
@@ -20,9 +23,7 @@ namespace Tomasulo
         }
 
         private void loadBuffers_SelectedIndexChanged(object sender, EventArgs e)
-        {
-
-        }
+        {}
 
         private void Form1_Load(object sender, EventArgs e)
         {
@@ -37,6 +38,17 @@ namespace Tomasulo
             instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.SUBD, "F8", "F0", "F6"));
             instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.DIVD, "F10", "F0", "F6"));
             instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.ADDD, "F6", "F8", "F2"));
+
+            issueClocks = new int[instructionUnit.GetCurrentInstructions().Length];
+            executeClocks = new int[instructionUnit.GetCurrentInstructions().Length];
+            writeClocks = new int[instructionUnit.GetCurrentInstructions().Length];
+
+            for (int i = 0; i < instructionUnit.GetCurrentInstructions().Length; i++)
+            {
+                issueClocks[i] = -1;
+                executeClocks[i] = -1;
+                writeClocks[i] = -1;
+            }
 
             loadStation = new ReservationStation(3, ReservationStation.RSType.Load);
             storeStation = new ReservationStation(3, ReservationStation.RSType.Store);
@@ -56,9 +68,40 @@ namespace Tomasulo
             }
 
             UpdateInstructionQueueBox();
+            UpdateIssuedInstructionsBox();
             UpdateReservationStationBoxes();
             UpdateFPRegisterBox();
+            UpdateIntRegisterBox();
             UpdateClockCountBox();
+        }
+        
+        private void UpdateIssuedInstructionsBox()
+        {
+            issuedInstructionBox.Clear();
+            issuedInstructionBox.View = View.Details;
+            issuedInstructionBox.Columns.Add("Inst", 50);
+            issuedInstructionBox.Columns.Add("Dest", 50);
+            issuedInstructionBox.Columns.Add("J", 50);
+            issuedInstructionBox.Columns.Add("K", 50);
+            issuedInstructionBox.Columns.Add("Issued", 50);
+            issuedInstructionBox.Columns.Add("Exec'd", 50);
+            issuedInstructionBox.Columns.Add("Written", 50);
+
+            int i = 0;
+            foreach (Instruction inst in issuedInstructions)
+            {
+                ListViewItem row = new ListViewItem(inst.opcode.ToString());
+                row.SubItems.Add(inst.dest);
+                row.SubItems.Add(inst.j);
+                row.SubItems.Add(inst.k);
+                
+                row.SubItems.Add(issueClocks[i].ToString());
+                row.SubItems.Add(executeClocks[i].ToString());
+                row.SubItems.Add(writeClocks[i].ToString());
+
+                issuedInstructionBox.Items.Add(row);
+                i++;
+            }
         }
 
         // Fill box with info in instructions.
@@ -222,6 +265,49 @@ namespace Tomasulo
             fpRegisters.Items.Add(row);
         }
 
+        private void UpdateIntRegisterBox()
+        {
+            intRegisters.Clear();
+            intRegisters.View = View.Details;
+            intRegisters.Columns.Add("");
+            for (int i = 0; i < intRegs.GetNumRegs(); i++)
+            {
+                intRegisters.Columns.Add("R" + i.ToString());
+            }
+
+            ListViewItem row = new ListViewItem("FU");
+            for (int i = 0; i < intRegs.GetNumRegs(); i++)
+            {
+                switch (intRegs.Get(i).waitState)
+                {
+                    case WaitInfo.WaitState.AddStation:
+                        row.SubItems.Add("Add" + (intRegs.Get(i).value + 1).ToString());
+                        break;
+
+                    case WaitInfo.WaitState.Avail:
+                        row.SubItems.Add(intRegs.Get(i).value.ToString());
+                        break;
+
+                    case WaitInfo.WaitState.Compute:
+                        row.SubItems.Add(intRegs.Get(i).value.ToString());
+                        break;
+
+                    case WaitInfo.WaitState.LoadStation:
+                        row.SubItems.Add("Load" + (intRegs.Get(i).value + 1).ToString());
+                        break;
+
+                    case WaitInfo.WaitState.MultStation:
+                        row.SubItems.Add("Mult" + (intRegs.Get(i).value + 1).ToString());
+                        break;
+
+                    case WaitInfo.WaitState.StoreStation:
+                        row.SubItems.Add("Store" + (intRegs.Get(i).value + 1).ToString());
+                        break;
+                }
+            }
+            intRegisters.Items.Add(row);
+        }
+
         // This is the main method that will run a cycle using Tomasulo's Algorithm.
         private void RunOneCycle()
         {   // Do backwards so that only 1 stage is run on each instruction per cycle.
@@ -230,8 +316,10 @@ namespace Tomasulo
             Issue();
 
             UpdateInstructionQueueBox();
+            UpdateIssuedInstructionsBox();
             UpdateReservationStationBoxes();
             UpdateFPRegisterBox();
+            UpdateIntRegisterBox();
         }
 
         private WaitInfo FindRegister(string name)
@@ -279,8 +367,11 @@ namespace Tomasulo
                     {
                         new Operand(instruction.j);
                         // Put in Reservation Station.
+                        issuedInstructions.Add(instruction);
+                        issueClocks[numIssued++] = clocks;
                         addStation.PutInBuffer(instructionUnit.GetInstruction(),
                             bufNum, jReg, kReg, wsJ, wsK);
+                        addStation.instrNum[bufNum] = issuedInstructions.Count - 1;
 
                         // Set Dest Reg.
                         if (instruction.dest.Substring(0, 1) == "F")
@@ -306,8 +397,11 @@ namespace Tomasulo
                     if ((bufNum = multiplyStation.GetFreeBuffer()) != -1)
                     {
                         // Issue.
+                        issuedInstructions.Add(instruction);
+                        issueClocks[numIssued++] = clocks;
                         multiplyStation.PutInBuffer(instructionUnit.GetInstruction(),
                             bufNum, jReg, kReg, wsJ, wsK);
+                        multiplyStation.instrNum[bufNum] = issuedInstructions.Count - 1;
 
                         // Set Dest Reg.
                         if (instruction.dest.Substring(0, 1) == "F")
@@ -331,8 +425,11 @@ namespace Tomasulo
                     if ((bufNum = loadStation.GetFreeBuffer()) != -1)
                     {
                         // Issue.
+                        issuedInstructions.Add(instruction);
+                        issueClocks[numIssued++] = clocks;
                         loadStation.PutInBuffer(instructionUnit.GetInstruction(),
                             bufNum, jReg, kReg, wsJ, wsK);
+                        loadStation.instrNum[bufNum] = issuedInstructions.Count - 1;
 
                         // Set Dest Reg.
                         if (instruction.dest.Substring(0, 1) == "F")
@@ -356,8 +453,11 @@ namespace Tomasulo
                     if ((bufNum = storeStation.GetFreeBuffer()) != -1)
                     {
                         // Issue.
+                        issuedInstructions.Add(instruction);
+                        issueClocks[numIssued++] = clocks;
                         storeStation.PutInBuffer(instructionUnit.GetInstruction(),
                             bufNum, jReg, kReg, wsJ, wsK);
+                        storeStation.instrNum[bufNum] = issuedInstructions.Count - 1;
                     }
                     else
                     {
@@ -369,10 +469,12 @@ namespace Tomasulo
 
         private void Execute()
         {
+            int result;
+
             // Add Station.
             for (int i = 0; i < addStation.numBuffers; i++)
             {
-                if (addStation.RunExecution(i) == -1)
+                if ((result = addStation.RunExecution(i)) == -1)
                 {   // Check operand avalability.
                     if (addStation.Qj[i] != null)
                     {
@@ -391,12 +493,19 @@ namespace Tomasulo
                         }
                     }
                 }
+                else if (result == 0)
+                {
+                    if (executeClocks[addStation.instrNum[i]] == -1)
+                    {
+                        executeClocks[addStation.instrNum[i]] = clocks;
+                    }
+                }
             }
 
             // Multiply Station.
             for (int i = 0; i < multiplyStation.numBuffers; i++)
             {
-                if (multiplyStation.RunExecution(i) == -1)
+                if ((result = multiplyStation.RunExecution(i)) == -1)
                 {   // Check operand availability.
                     if (multiplyStation.Qj[i] != null)
                     {
@@ -415,6 +524,13 @@ namespace Tomasulo
                         }
                     }
                 }
+                else if (result == 0)
+                {
+                    if (executeClocks[multiplyStation.instrNum[i]] == -1)
+                    {
+                        executeClocks[multiplyStation.instrNum[i]] = clocks;
+                    }
+                }
             }
 
             // Load Station.
@@ -423,6 +539,10 @@ namespace Tomasulo
                 if (loadStation.addrReady[i])
                 {   // Address Computed.
                     loadStation.GetFromMemory(i, memLocs);
+                    if (executeClocks[loadStation.instrNum[i]] == -1)
+                    {
+                        executeClocks[loadStation.instrNum[i]] = clocks;
+                    }
                 }
                 else
                 {   // Compute Address.
@@ -462,6 +582,10 @@ namespace Tomasulo
                 if (storeStation.addrReady[i])
                 {   // Address Computed.
                     storeStation.BufferValue(i, floatRegs, intRegs);
+                    if (executeClocks[storeStation.instrNum[i]] == -1)
+                    {
+                        executeClocks[storeStation.instrNum[i]] = clocks;
+                    }
                 }
                 else
                 {   // Compute Address.
@@ -495,6 +619,7 @@ namespace Tomasulo
             {
                 if (addStation.isReady[i])
                 {
+                    writeClocks[addStation.instrNum[i]] = clocks;
                     if (addStation.dest[i].opType == Operand.OperandType.FloatReg)
                     {
                         floatRegs.Set(WaitInfo.WaitState.Avail, addStation.Compute(floatRegs, intRegs, i),
@@ -518,6 +643,7 @@ namespace Tomasulo
             {
                 if (multiplyStation.isReady[i])
                 {
+                    writeClocks[multiplyStation.instrNum[i]] = clocks;
                     if (multiplyStation.dest[i].opType == Operand.OperandType.FloatReg)
                     {
                         floatRegs.Set(WaitInfo.WaitState.Avail, multiplyStation.Compute(floatRegs, intRegs, i),
@@ -541,6 +667,7 @@ namespace Tomasulo
                 {
                 if (loadStation.isReady[i])
                 {
+                    writeClocks[loadStation.instrNum[i]] = clocks;
                     if (loadStation.dest[i].opType == Operand.OperandType.FloatReg)
                     {
                         floatRegs.Set(WaitInfo.WaitState.Avail, memLocs.Get(loadStation.addresses[i]),
@@ -559,16 +686,17 @@ namespace Tomasulo
                 }
             }
 
-                // Store Results.
-                for (int i = 0; i < loadStation.numBuffers; i++)
-                {
-                    if (storeStation.isReady[i])
-                    {   // Ready.
-                        memLocs.Set(storeStation.results[i], (int) storeStation.addresses[i]);
-                        storeStation.Free(i);
-                    }
+            // Store Results.
+            for (int i = 0; i < loadStation.numBuffers; i++)
+            {
+                if (storeStation.isReady[i])
+                {   // Ready.
+                    writeClocks[storeStation.instrNum[i]] = clocks;
+                    memLocs.Set(storeStation.results[i], (int) storeStation.addresses[i]);
+                    storeStation.Free(i);
                 }
             }
+        }
 
         private void UpdateClockCountBox()
         {
