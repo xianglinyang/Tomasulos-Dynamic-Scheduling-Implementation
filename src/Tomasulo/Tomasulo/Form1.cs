@@ -7,7 +7,8 @@ namespace Tomasulo
     public partial class Form1 : Form
     {
         InstructionUnit instructionUnit = new InstructionUnit();
-        ReservationStation loadStation, storeStation, addStation, multiplyStation;
+        Instruction[] originalInstructions;
+        ReservationStation loadStation, storeStation, addStation, multiplyStation, branchStation;
         FloatingPointRegisters floatRegs;
         IntegerRegisters intRegs;
         FloatingPointMemoryArrary memLocs;
@@ -16,6 +17,7 @@ namespace Tomasulo
         private int [] executeClocks;
         private int [] writeClocks;
         private int clocks = 0, numIssued = 0;
+        int instrOffset = 0;
 
         public Form1()
         {
@@ -28,8 +30,6 @@ namespace Tomasulo
         private void Form1_Load(object sender, EventArgs e)
         {
             // Temporary. Will eventually get from user.
-            //instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.LD, "F6", "32(R2)", null));
-            //instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.LD, "F2", "44(R3)", null));
             instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.LD, "F6", "34+", "R2"));
             instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.LD, "F2", "45+", "R3"));
             instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.SD, "F2", "3", "R3"));
@@ -38,12 +38,15 @@ namespace Tomasulo
             instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.SUBD, "F8", "F0", "F6"));
             instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.DIVD, "F10", "F0", "F6"));
             instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.ADDD, "F6", "F8", "F2"));
+            instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.BNE, "-8", "F6", "F10"));
 
-            issueClocks = new int[instructionUnit.GetCurrentInstructions().Length];
-            executeClocks = new int[instructionUnit.GetCurrentInstructions().Length];
-            writeClocks = new int[instructionUnit.GetCurrentInstructions().Length];
+            originalInstructions = instructionUnit.GetCurrentInstructions();
 
-            for (int i = 0; i < instructionUnit.GetCurrentInstructions().Length; i++)
+            issueClocks = new int[100];
+            executeClocks = new int[100];
+            writeClocks = new int[100];
+
+            for (int i = 0; i < 100; i++)
             {
                 issueClocks[i] = -1;
                 executeClocks[i] = -1;
@@ -54,6 +57,7 @@ namespace Tomasulo
             storeStation = new ReservationStation(3, ReservationStation.RSType.Store);
             addStation = new ReservationStation(3, ReservationStation.RSType.Add);
             multiplyStation = new ReservationStation(2, ReservationStation.RSType.Multiply);
+            branchStation = new ReservationStation(5, ReservationStation.RSType.Multiply);
 
             floatRegs = new FloatingPointRegisters(30);
             for (int i = 0; i < 30; i++)
@@ -464,6 +468,22 @@ namespace Tomasulo
                         Console.WriteLine("Stalling due to a structural hazard.");
                     }
                     break;
+
+                case Instruction.InstructionType.Branch:
+                    if ((bufNum = branchStation.GetFreeBuffer()) != -1)
+                    {
+                        // Issue.
+                        issuedInstructions.Add(instruction);
+                        issueClocks[numIssued++] = clocks;
+                        branchStation.PutInBuffer(instructionUnit.GetInstruction(),
+                            bufNum, jReg, kReg, wsJ, wsK);
+                        branchStation.instrNum[bufNum] = issuedInstructions.Count - 1;
+                    }
+                    else
+                    {
+                        Console.WriteLine("Stalling due to a structural hazard.");
+                    }
+                    break;
             }
         }
 
@@ -610,7 +630,38 @@ namespace Tomasulo
                     }
                 }
             }
-        }
+
+            // Branch Station.
+            for (int i = 0; i < branchStation.numBuffers; i++)
+            {
+                if ((result = branchStation.RunExecution(i)) == -1)
+                {   // Check operand avalability.
+                    if (branchStation.Qj[i] != null)
+                    {
+                        if (branchStation.Qj[i].waitState == WaitInfo.WaitState.Avail)
+                        {
+                            branchStation.Vj[i] = new Operand(Operand.OperandType.Num, branchStation.Qj[i].value);
+                            branchStation.Qj[i] = null;
+                        }
+                    }
+                    if (branchStation.Qk[i] != null)
+                    {
+                        if (branchStation.Qk[i].waitState == WaitInfo.WaitState.Avail)
+                        {
+                            branchStation.Vk[i] = new Operand(Operand.OperandType.Num, branchStation.Qk[i].value);
+                            branchStation.Qk[i] = null;
+                        }
+                    }
+                }
+                else if (result == 0)
+                {
+                    if (executeClocks[branchStation.instrNum[i]] == -1)
+                    {
+                        executeClocks[branchStation.instrNum[i]] = clocks;
+                    }
+                }
+            }
+            }
 
         private void Write()
         {
@@ -694,6 +745,34 @@ namespace Tomasulo
                     writeClocks[storeStation.instrNum[i]] = clocks;
                     memLocs.Set(storeStation.results[i], (int) storeStation.addresses[i]);
                     storeStation.Free(i);
+                }
+            }
+
+            // Branch Results.
+            for (int i = 0; i < branchStation.numBuffers; i++)
+            {
+                if (branchStation.isReady[i])
+                {
+                    writeClocks[branchStation.instrNum[i]] = clocks;
+                    int amtToBranch = (int) branchStation.DetermineBranch(floatRegs, intRegs, i);
+                    if (amtToBranch == 0)
+                    {
+
+                    }
+                    else
+                    {
+                        // Clear Instruction Queue.
+                        instructionUnit = new InstructionUnit();
+
+                        // Put new instructions in.
+                        int j;
+                        for (j = branchStation.instrNum[i] + amtToBranch - instrOffset; j < originalInstructions.Length; j++)
+                        {
+                            instructionUnit.AddInstruction(originalInstructions[j]);
+                        }
+                        instrOffset += j;
+                    }
+                    branchStation.Free(i);
                 }
             }
         }

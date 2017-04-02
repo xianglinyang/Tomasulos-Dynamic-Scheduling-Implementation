@@ -10,7 +10,6 @@ namespace Tomasulo
         public void AddInstruction(Instruction instruct)
         {
             instructions.Enqueue(instruct);
-            instructions.ToArray<Instruction>();
         }
 
         public Instruction GetInstruction()

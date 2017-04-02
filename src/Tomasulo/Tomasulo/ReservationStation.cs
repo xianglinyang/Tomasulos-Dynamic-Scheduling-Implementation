@@ -194,6 +194,70 @@ namespace Tomasulo
             }
         }
 
+        public float DetermineBranch(FloatingPointRegisters floatRegs, IntegerRegisters intRegs, int index)
+        {
+            float jVal = 0, kVal = 0;
+
+            // Get Operands.
+            if (Vj[index].opType == Operand.OperandType.FloatReg)
+            {
+                jVal = floatRegs.Get((int)Vj[index].opVal).value;
+            }
+            else if (Vj[index].opType == Operand.OperandType.IntReg)
+            {
+                jVal = intRegs.Get((int)Vj[index].opVal).value;
+            }
+            else if (Vj[index].opType == Operand.OperandType.Num)
+            {
+                jVal = Vj[index].opVal;
+            }
+
+            if (Vk[index].opType == Operand.OperandType.FloatReg)
+            {
+                kVal = floatRegs.Get((int)Vk[index].opVal).value;
+            }
+            else if (Vk[index].opType == Operand.OperandType.IntReg)
+            {
+                kVal = intRegs.Get((int)Vk[index].opVal).value;
+            }
+            else if (Vk[index].opType == Operand.OperandType.Num)
+            {
+                kVal = Vk[index].opVal;
+            }
+
+            switch (opCodes[index])
+            {
+                case Instruction.Opcodes.BEQ:
+                    if (jVal == kVal)
+                    {
+                        return dest[index].opVal;
+                    }
+                    else
+                    {
+                        return 0;
+                    }
+                    
+                case Instruction.Opcodes.BGEZ:
+                    return 0;
+
+                case Instruction.Opcodes.BLEZ:
+                    return 0;
+
+                case Instruction.Opcodes.BNE:
+                    if (jVal != kVal)
+                    {
+                        return dest[index].opVal;
+                    }
+                    else
+                    {
+                        return 0;
+                    }
+
+                default:
+                    return 0;
+            }
+        }
+
         public float Compute(FloatingPointRegisters floatRegs, IntegerRegisters intRegs, int index)
         {
             float jVal = 0, kVal = 0;
