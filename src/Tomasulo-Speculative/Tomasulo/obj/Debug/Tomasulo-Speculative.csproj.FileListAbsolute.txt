@@ -1,0 +1,3 @@
+C:\Users\dbake\Documents\ECE562\Tomasulos-Dynamic-Scheduling-Implementation\src\Tomasulo\Tomasulo\bin\Debug\Tomasulo.exe.config
+C:\Users\dbake\Documents\ECE562\Tomasulos-Dynamic-Scheduling-Implementation\src\Tomasulo\Tomasulo\obj\Debug\Tomasulo.exe
+C:\Users\dbake\Documents\ECE562\Tomasulos-Dynamic-Scheduling-Implementation\src\Tomasulo\Tomasulo\obj\Debug\Tomasulo.pdb
