@@ -42,8 +42,8 @@ namespace Tomasulo
             instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.MULD, "F0", "F2", "F4"));
             instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.SUBD, "F8", "F0", "F6"));
             instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.DIVD, "F10", "F0", "F6"));
-            instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.ADDD, "F6", "F8", "F2"));
-            instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.BNE, "-8", "F6", "F10"));
+            instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.ADDD, "F7", "F8", "F2"));
+            instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.BNE, "-8", "F7", "F10"));
 
             originalInstructions = instructionUnit.GetCurrentInstructions();
 
@@ -224,7 +224,7 @@ namespace Tomasulo
                 row.SubItems.Add((multiplyStation.Qj[i] == null) ? "" :
                     multiplyStation.Qj[i].waitState.ToString().Substring(0, 1) + (multiplyStation.Qj[i].value + 1));
                 row.SubItems.Add((multiplyStation.Qk[i] == null) ? "" :
-                    multiplyStation.Qk[i].waitState.ToString().Substring(0, 1) + (multiplyStation.Qj[i].value + 1));
+                    multiplyStation.Qk[i].waitState.ToString().Substring(0, 1) + (multiplyStation.Qk[i].value + 1));
                 row.SubItems.Add(multiplyStation.results[i].ToString());
                 reservationStation2.Items.Add(row);
             }
@@ -428,6 +428,19 @@ namespace Tomasulo
                         addStation.instrNum[bufNum] = issuedInstructions.Count - 1;
                         ROB.instrNum[robNum] = issuedInstructions.Count - 1;
                         ROB.ReserveBuffer(robNum, Instruction.InstructionType.Add);
+                        if (addStation.dest[bufNum].opType == Operand.OperandType.FloatReg)
+                        {
+                            ROB.destType[robNum] = ReorderBuffer.ROBDestination.FReg;
+                        }
+                        else if (addStation.dest[bufNum].opType == Operand.OperandType.IntReg)
+                        {
+                            ROB.destType[robNum] = ReorderBuffer.ROBDestination.IReg;
+                        }
+                        else
+                        {
+                            ROB.destType[robNum] = ReorderBuffer.ROBDestination.FMem;
+                        }
+                        ROB.destLoc[robNum] = (int) addStation.dest[bufNum].opVal;
 
                         // Set Dest Reg.
                         if (instruction.dest.Substring(0, 1) == "F")
@@ -440,6 +453,7 @@ namespace Tomasulo
                             intRegs.Set(WaitInfo.WaitState.ReorderBuffer, robNum,
                             Int32.Parse(instruction.dest.Substring(1)));
                         }
+                        totalIssuedInstr++;
                     }
                     else
                     {
@@ -458,6 +472,19 @@ namespace Tomasulo
                         multiplyStation.instrNum[bufNum] = issuedInstructions.Count - 1;
                         ROB.instrNum[robNum] = issuedInstructions.Count - 1;
                         ROB.ReserveBuffer(robNum, Instruction.InstructionType.Multiply);
+                        if (multiplyStation.dest[bufNum].opType == Operand.OperandType.FloatReg)
+                        {
+                            ROB.destType[robNum] = ReorderBuffer.ROBDestination.FReg;
+                        }
+                        else if (multiplyStation.dest[bufNum].opType == Operand.OperandType.IntReg)
+                        {
+                            ROB.destType[robNum] = ReorderBuffer.ROBDestination.IReg;
+                        }
+                        else
+                        {
+                            ROB.destType[robNum] = ReorderBuffer.ROBDestination.FMem;
+                        }
+                        ROB.destLoc[robNum] = (int) multiplyStation.dest[bufNum].opVal;
 
                         // Set Dest Reg.
                         if (instruction.dest.Substring(0, 1) == "F")
@@ -470,6 +497,7 @@ namespace Tomasulo
                             intRegs.Set(WaitInfo.WaitState.ReorderBuffer, robNum,
                             Int32.Parse(instruction.dest.Substring(1)));
                         }
+                        totalIssuedInstr++;
                     }
                     else
                     {
@@ -488,6 +516,19 @@ namespace Tomasulo
                         loadStation.instrNum[bufNum] = issuedInstructions.Count - 1;
                         ROB.instrNum[robNum] = issuedInstructions.Count - 1;
                         ROB.ReserveBuffer(robNum, Instruction.InstructionType.Load);
+                        if (loadStation.dest[bufNum].opType == Operand.OperandType.FloatReg)
+                        {
+                            ROB.destType[robNum] = ReorderBuffer.ROBDestination.FReg;
+                        }
+                        else if (loadStation.dest[bufNum].opType == Operand.OperandType.IntReg)
+                        {
+                            ROB.destType[robNum] = ReorderBuffer.ROBDestination.IReg;
+                        }
+                        else
+                        {
+                            ROB.destType[robNum] = ReorderBuffer.ROBDestination.FMem;
+                        }
+                        ROB.destLoc[robNum] = (int) loadStation.dest[bufNum].opVal;
 
                         // Set Dest Reg.
                         if (instruction.dest.Substring(0, 1) == "F")
@@ -500,6 +541,7 @@ namespace Tomasulo
                             intRegs.Set(WaitInfo.WaitState.ReorderBuffer, robNum,
                             Int32.Parse(instruction.dest.Substring(1)));
                         }
+                        totalIssuedInstr++;
                     }
                     else
                     {
@@ -518,6 +560,20 @@ namespace Tomasulo
                         storeStation.instrNum[bufNum] = issuedInstructions.Count - 1;
                         ROB.instrNum[robNum] = issuedInstructions.Count - 1;
                         ROB.ReserveBuffer(robNum, Instruction.InstructionType.Store);
+                        if (storeStation.dest[bufNum].opType == Operand.OperandType.FloatReg)
+                        {
+                            ROB.destType[robNum] = ReorderBuffer.ROBDestination.FReg;
+                        }
+                        else if (storeStation.dest[bufNum].opType == Operand.OperandType.IntReg)
+                        {
+                            ROB.destType[robNum] = ReorderBuffer.ROBDestination.IReg;
+                        }
+                        else
+                        {
+                            ROB.destType[robNum] = ReorderBuffer.ROBDestination.FMem;
+                        }
+                        ROB.destLoc[robNum] = (int) storeStation.dest[bufNum].opVal;
+                        totalIssuedInstr++;
                     }
                     else
                     {
@@ -540,6 +596,7 @@ namespace Tomasulo
                         ROB.instrNum[robNum] = issuedInstructions.Count - 1;
                         ROB.ReserveBuffer(robNum, Instruction.InstructionType.Branch);
                         ROB.prediction[robNum] = prediction;
+                        totalIssuedInstr++;
                     }
                     else
                     {
@@ -547,7 +604,6 @@ namespace Tomasulo
                     }
                     break;
             }
-            totalIssuedInstr++;
         }
 
         private void Execute()
@@ -745,7 +801,7 @@ namespace Tomasulo
                             instructionUnit = new InstructionUnit();
 
                             // Put new instructions in.
-                            for (int j = branchStation.instrNum[i] - totalIssuedInstr + 2; j < originalInstructions.Length; j++)
+                            for (int j = branchStation.instrNum[i] - totalIssuedInstr + 1; j < originalInstructions.Length; j++)
                             {
                                 instructionUnit.AddInstruction(originalInstructions[j]);
                             }
@@ -892,7 +948,9 @@ namespace Tomasulo
                             instrOffset -= ROB.instrOffsets[ROB.head];
 
                             // Clean ROB.
-                            ROB.RemoveInstructionsAfterHead();
+                            ROB = new ReorderBuffer();
+                            floatRegs.ClearROBRefs();
+                            intRegs.ClearROBRefs();
                             return;
                         }
                     }
@@ -914,7 +972,9 @@ namespace Tomasulo
                             instrOffset += j;
 
                             // Clean ROB.
-                            ROB.RemoveInstructionsAfterHead();
+                            ROB = new ReorderBuffer();
+                            floatRegs.ClearROBRefs();
+                            intRegs.ClearROBRefs();
                             return;
                         }
                     }
@@ -939,6 +999,7 @@ namespace Tomasulo
 
                 ROB.CleanBuffer(ROB.head);
                 ROB.IncrementHead();
+
             }
         }
 

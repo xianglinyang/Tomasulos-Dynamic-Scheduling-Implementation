@@ -142,6 +142,7 @@ namespace Tomasulo
             IncrementTail();
             inUse[num] = true;
             instrType[num] = type;
+            resultWritten[num] = false;
         }
 
         public void BufferResult(int index, Instruction.InstructionType iType, ROBDestination dType, int dLoc, float res, bool rdy)

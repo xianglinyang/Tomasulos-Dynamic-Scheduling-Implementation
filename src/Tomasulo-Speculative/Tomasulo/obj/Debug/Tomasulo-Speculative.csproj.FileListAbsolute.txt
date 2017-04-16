@@ -1,3 +1,11 @@
 C:\Users\dbake\Documents\ECE562\Tomasulos-Dynamic-Scheduling-Implementation\src\Tomasulo\Tomasulo\bin\Debug\Tomasulo.exe.config
 C:\Users\dbake\Documents\ECE562\Tomasulos-Dynamic-Scheduling-Implementation\src\Tomasulo\Tomasulo\obj\Debug\Tomasulo.exe
 C:\Users\dbake\Documents\ECE562\Tomasulos-Dynamic-Scheduling-Implementation\src\Tomasulo\Tomasulo\obj\Debug\Tomasulo.pdb
+C:\Users\dbake\Documents\ECE562\Tomasulos-Dynamic-Scheduling-Implementation\src\Tomasulo\Tomasulo\bin\Debug\Tomasulo.exe
+C:\Users\dbake\Documents\ECE562\Tomasulos-Dynamic-Scheduling-Implementation\src\Tomasulo\Tomasulo\bin\Debug\Tomasulo.pdb
+C:\Users\dbake\Documents\ECE562\Tomasulos-Dynamic-Scheduling-Implementation\src\Tomasulo\Tomasulo\bin\Debug\Microsoft.VisualBasic.PowerPacks.dll
+C:\Users\dbake\Documents\ECE562\Tomasulos-Dynamic-Scheduling-Implementation\src\Tomasulo\Tomasulo\bin\Debug\Microsoft.VisualBasic.PowerPacks.xml
+C:\Users\dbake\Documents\ECE562\Tomasulos-Dynamic-Scheduling-Implementation\src\Tomasulo\Tomasulo\obj\Debug\Tomasulo-Speculative.csprojResolveAssemblyReference.cache
+C:\Users\dbake\Documents\ECE562\Tomasulos-Dynamic-Scheduling-Implementation\src\Tomasulo\Tomasulo\obj\Debug\Tomasulo.Form1.resources
+C:\Users\dbake\Documents\ECE562\Tomasulos-Dynamic-Scheduling-Implementation\src\Tomasulo\Tomasulo\obj\Debug\Tomasulo.Properties.Resources.resources
+C:\Users\dbake\Documents\ECE562\Tomasulos-Dynamic-Scheduling-Implementation\src\Tomasulo\Tomasulo\obj\Debug\Tomasulo-Speculative.csproj.GenerateResource.Cache
