@@ -5,6 +5,8 @@ namespace Tomasulo
     public class ReorderBuffer
     {
         public enum ROBDestination { FReg, IReg, FMem };
+        public enum State { Issue, Execute, Write, Commit };
+        public List<State> state;
         public List<Instruction.InstructionType> instrType;
         public List<ROBDestination> destType;
         public List<int> destLoc;
@@ -22,9 +24,12 @@ namespace Tomasulo
         public IntegerRegisters[] oldIRegs;
         public int[] instrOffsets;
         public int[] instrNum;
+        public List<Operand> j;
+        public List<Operand> k;
 
         public ReorderBuffer()
         {
+            state = new List<State>();
             instrType = new List<Instruction.InstructionType>();
             destType = new List<ROBDestination>();
             destLoc = new List<int>();
@@ -40,9 +45,12 @@ namespace Tomasulo
             oldIRegs = new IntegerRegisters[robSize];
             instrOffsets = new int[robSize];
             instrNum = new int[robSize];
+            j = new List<Operand>();
+            k = new List<Operand>();
 
             for (int i = 0; i < robSize; i++)
             {
+                state.Add(State.Issue);
                 instrType.Add(Instruction.InstructionType.Add);
                 destType.Add(ROBDestination.FMem);
                 destLoc.Add(0);
@@ -52,11 +60,14 @@ namespace Tomasulo
                 resultWritten.Add(false);
                 prediction.Add(false);
                 branchAmt.Add(0);
+                j.Add(null);
+                k.Add(null);
             }
         }
 
         public void CleanBuffer(int index)
         {
+            //state[index] = State.Issue;
             instrType[index] = Instruction.InstructionType.Add;
             destType[index] = ROBDestination.FMem;
             destLoc[index] = 0;
@@ -67,6 +78,8 @@ namespace Tomasulo
             prediction[index] = false;
             branchAmt[index] = 0;
             instrNum[index] = 0;
+            j[index] = null;
+            k[index] = null;
         }
 
         public void IncrementHead()

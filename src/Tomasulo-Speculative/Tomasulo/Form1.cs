@@ -19,9 +19,11 @@ namespace Tomasulo
         private int[] issueClocks;
         private int [] executeClocks;
         private int [] writeClocks;
+        private int[] commitClocks;
         private int clocks = 0, numIssued = 0;
         int instrOffset = 0;
         int totalIssuedInstr = 0;
+        int oldHead = -1;
 
         public Form1()
         {
@@ -35,6 +37,15 @@ namespace Tomasulo
         {
             // Temporary. Will eventually get from user.
             instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.LD, "F6", "34+", "R2"));
+            instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.LD, "F2", "45+", "R3"));
+            instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.SD, "F2", "3", "R3"));
+            instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.LD, "F25", "3+", "0"));
+            instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.MULD, "F0", "F2", "F4"));
+            instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.SUBD, "F8", "F0", "F6"));
+            instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.DIVD, "F10", "F0", "F6"));
+            instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.ADDD, "F6", "F8", "F2"));
+            instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.BNE, "-8", "F6", "F10"));
+            /*instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.LD, "F6", "34+", "R2"));
             instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.BEQ, "-1", "F28", "F29"));
             instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.LD, "F2", "45+", "R3"));
             instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.SD, "F2", "3", "R3"));
@@ -43,19 +54,21 @@ namespace Tomasulo
             instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.SUBD, "F8", "F0", "F6"));
             instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.DIVD, "F10", "F0", "F6"));
             instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.ADDD, "F7", "F8", "F2"));
-            instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.BNE, "-8", "F7", "F10"));
+            instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.BNE, "-8", "F7", "F10"));*/
 
             originalInstructions = instructionUnit.GetCurrentInstructions();
 
             issueClocks = new int[100];
             executeClocks = new int[100];
             writeClocks = new int[100];
+            commitClocks = new int[100];
 
             for (int i = 0; i < 100; i++)
             {
                 issueClocks[i] = -1;
                 executeClocks[i] = -1;
                 writeClocks[i] = -1;
+                commitClocks[i] = -1;
                 predictedBranchTaken.Add(false);
             }
 
@@ -64,8 +77,8 @@ namespace Tomasulo
             loadStation = new ReservationStation(3, ReservationStation.RSType.Load);
             storeStation = new ReservationStation(3, ReservationStation.RSType.Store);
             addStation = new ReservationStation(3, ReservationStation.RSType.Add);
-            multiplyStation = new ReservationStation(2, ReservationStation.RSType.Multiply);
-            branchStation = new ReservationStation(5, ReservationStation.RSType.Multiply);
+            multiplyStation = new ReservationStation(3, ReservationStation.RSType.Multiply);
+            branchStation = new ReservationStation(1, ReservationStation.RSType.Multiply);
 
             ROB = new ReorderBuffer();
 
@@ -88,8 +101,17 @@ namespace Tomasulo
             UpdateIntRegisterBox();
             UpdateClockCountBox();
             UpdateROBBox();
+
+#if false
+            for (int c = 0; c < 47; c++)
+            {
+                clocks++;
+                RunOneCycle();
+                UpdateClockCountBox();
+            }
+#endif
         }
-        
+
         private void UpdateROBBox()
         {
             ReorderBuf.Clear();
@@ -111,9 +133,11 @@ namespace Tomasulo
                 row.SubItems.Add((ROB.destType[i] == ReorderBuffer.ROBDestination.FMem ? "MEM" :
                     (ROB.destType[i] == ReorderBuffer.ROBDestination.FReg ? "F" :
                     "R")) + ROB.destLoc[i].ToString());
-                row.SubItems.Add("j");
-                row.SubItems.Add("k");
-                row.SubItems.Add("state");
+                row.SubItems.Add((ROB.j[i] == null) ? "" :
+                    ROB.j[i].PrintString());
+                row.SubItems.Add((ROB.k[i] == null) ? "" :
+                    ROB.k[i].PrintString());
+                row.SubItems.Add(ROB.state[i].ToString());
                 row.SubItems.Add(ROB.result[i].ToString());
                 ReorderBuf.Items.Add(row);
             }
@@ -130,6 +154,7 @@ namespace Tomasulo
             issuedInstructionBox.Columns.Add("Issued", 50);
             issuedInstructionBox.Columns.Add("Exec'd", 50);
             issuedInstructionBox.Columns.Add("Written", 50);
+            issuedInstructionBox.Columns.Add("Comm'd", 50);
 
             int i = 0;
             foreach (Instruction inst in issuedInstructions)
@@ -142,6 +167,7 @@ namespace Tomasulo
                 row.SubItems.Add(issueClocks[i].ToString());
                 row.SubItems.Add(executeClocks[i].ToString());
                 row.SubItems.Add(writeClocks[i].ToString());
+                row.SubItems.Add(commitClocks[i].ToString());
 
                 issuedInstructionBox.Items.Add(row);
                 i++;
@@ -419,7 +445,8 @@ namespace Tomasulo
                 case Instruction.InstructionType.Add:
                     if ((bufNum = addStation.GetFreeBuffer()) != -1 && (robNum = ROB.GetFreeBuffer()) != -1)
                     {
-                        new Operand(instruction.j);
+                        if (robNum == oldHead) break;
+                        //new Operand(instruction.j);
                         // Put in Reservation Station.
                         issuedInstructions.Add(instruction);
                         issueClocks[numIssued++] = clocks;
@@ -464,6 +491,7 @@ namespace Tomasulo
                 case Instruction.InstructionType.Multiply:
                     if ((bufNum = multiplyStation.GetFreeBuffer()) != -1 && (robNum = ROB.GetFreeBuffer()) != -1)
                     {
+                        if (robNum == oldHead) break;
                         // Issue.
                         issuedInstructions.Add(instruction);
                         issueClocks[numIssued++] = clocks;
@@ -508,6 +536,7 @@ namespace Tomasulo
                 case Instruction.InstructionType.Load:
                     if ((bufNum = loadStation.GetFreeBuffer()) != -1 && (robNum = ROB.GetFreeBuffer()) != -1)
                     {
+                        if (robNum == oldHead) break;
                         // Issue.
                         issuedInstructions.Add(instruction);
                         issueClocks[numIssued++] = clocks;
@@ -552,6 +581,7 @@ namespace Tomasulo
                 case Instruction.InstructionType.Store:
                     if ((bufNum = storeStation.GetFreeBuffer()) != -1 && (robNum = ROB.GetFreeBuffer()) != -1)
                     {
+                        if (robNum == oldHead) break;
                         // Issue.
                         issuedInstructions.Add(instruction);
                         issueClocks[numIssued++] = clocks;
@@ -584,6 +614,7 @@ namespace Tomasulo
                 case Instruction.InstructionType.Branch:
                     if ((bufNum = branchStation.GetFreeBuffer()) != -1 && (robNum = ROB.GetFreeBuffer()) != -1)
                     {
+                        if (robNum == oldHead) break;
                         // First, predict.
                         bool prediction = speculator.GetBranchPrediction();
 
@@ -620,6 +651,7 @@ namespace Tomasulo
                         if (addStation.Qj[i].waitState == WaitInfo.WaitState.Avail)
                         {
                             addStation.Vj[i] = new Operand(Operand.OperandType.Num, addStation.Qj[i].value);
+                            ROB.j[addStation.robNum[i]] = addStation.Vj[i];
                             addStation.Qj[i] = null;
                         }
                     }
@@ -628,7 +660,15 @@ namespace Tomasulo
                         if (addStation.Qk[i].waitState == WaitInfo.WaitState.Avail)
                         {
                             addStation.Vk[i] = new Operand(Operand.OperandType.Num, addStation.Qk[i].value);
+                            ROB.k[addStation.robNum[i]] = addStation.Vk[i];
                             addStation.Qk[i] = null;
+                        }
+                    }
+                    if (addStation.robNum[i] != -1)
+                    {
+                        if (ROB.state[addStation.robNum[i]] == ReorderBuffer.State.Issue)
+                        {
+                            ROB.state[addStation.robNum[i]] = ReorderBuffer.State.Execute;
                         }
                     }
                 }
@@ -637,6 +677,13 @@ namespace Tomasulo
                     if (executeClocks[addStation.instrNum[i]] == -1)
                     {
                         executeClocks[addStation.instrNum[i]] = clocks;
+                    }
+                    if (addStation.robNum[i] != -1)
+                    {
+                        if (ROB.state[addStation.robNum[i]] == ReorderBuffer.State.Issue)
+                        {
+                            ROB.state[addStation.robNum[i]] = ReorderBuffer.State.Execute;
+                        }
                     }
                 }
             }
@@ -651,6 +698,7 @@ namespace Tomasulo
                         if (multiplyStation.Qj[i].waitState == WaitInfo.WaitState.Avail)
                         {
                             multiplyStation.Vj[i] = new Operand(Operand.OperandType.Num, multiplyStation.Qj[i].value);
+                            ROB.j[multiplyStation.robNum[i]] = multiplyStation.Vj[i];
                             multiplyStation.Qj[i] = null;
                         }
                     }
@@ -659,7 +707,15 @@ namespace Tomasulo
                         if (multiplyStation.Qk[i].waitState == WaitInfo.WaitState.Avail)
                         {
                             multiplyStation.Vk[i] = new Operand(Operand.OperandType.Num, multiplyStation.Qk[i].value);
+                            ROB.k[multiplyStation.robNum[i]] = multiplyStation.Vk[i];
                             multiplyStation.Qk[i] = null;
+                        }
+                    }
+                    if (multiplyStation.robNum[i] != -1)
+                    {
+                        if (ROB.state[multiplyStation.robNum[i]] == ReorderBuffer.State.Issue)
+                        {
+                            ROB.state[multiplyStation.robNum[i]] = ReorderBuffer.State.Execute;
                         }
                     }
                 }
@@ -668,6 +724,13 @@ namespace Tomasulo
                     if (executeClocks[multiplyStation.instrNum[i]] == -1)
                     {
                         executeClocks[multiplyStation.instrNum[i]] = clocks;
+                    }
+                    if (multiplyStation.robNum[i] != -1)
+                    {
+                        if (ROB.state[multiplyStation.robNum[i]] == ReorderBuffer.State.Issue)
+                        {
+                            ROB.state[multiplyStation.robNum[i]] = ReorderBuffer.State.Execute;
+                        }
                     }
                 }
             }
@@ -682,6 +745,13 @@ namespace Tomasulo
                     {
                         executeClocks[loadStation.instrNum[i]] = clocks;
                     }
+                    if (loadStation.robNum[i] != -1)
+                    {
+                        if (ROB.state[loadStation.robNum[i]] == ReorderBuffer.State.Issue)
+                        {
+                            ROB.state[loadStation.robNum[i]] = ReorderBuffer.State.Execute;
+                        }
+                    }
                 }
                 else
                 {   // Compute Address.
@@ -692,6 +762,7 @@ namespace Tomasulo
                             if (loadStation.Qj[i].waitState == WaitInfo.WaitState.Avail)
                             {
                                 loadStation.Vj[i] = new Operand(Operand.OperandType.Num, loadStation.Qj[i].value);
+                                ROB.j[loadStation.robNum[i]] = loadStation.Vj[i];
                                 loadStation.Qj[i] = null;
                             }
                         }
@@ -700,6 +771,7 @@ namespace Tomasulo
                             if (loadStation.Qk[i].waitState == WaitInfo.WaitState.Avail)
                             {
                                 loadStation.Vk[i] = new Operand(Operand.OperandType.Num, loadStation.Qk[i].value);
+                                ROB.k[loadStation.robNum[i]] = loadStation.Vk[i];
                                 loadStation.Qk[i] = null;
                             }
                         }
@@ -711,6 +783,13 @@ namespace Tomasulo
                         loadStation.remainingCycles[i] = -1;
                         loadStation.isReady[i] = false;
                         loadStation.addrReady[i] = true;
+                    }
+                }
+                if (loadStation.robNum[i] != -1)
+                {
+                    if (ROB.state[loadStation.robNum[i]] == ReorderBuffer.State.Issue)
+                    {
+                        ROB.state[loadStation.robNum[i]] = ReorderBuffer.State.Execute;
                     }
                 }
             }
@@ -725,6 +804,13 @@ namespace Tomasulo
                     {
                         executeClocks[storeStation.instrNum[i]] = clocks;
                     }
+                    if (storeStation.robNum[i] != -1)
+                    {
+                        if (ROB.state[storeStation.robNum[i]] == ReorderBuffer.State.Issue)
+                        {
+                            ROB.state[storeStation.robNum[i]] = ReorderBuffer.State.Execute;
+                        }
+                    }
                 }
                 else
                 {   // Compute Address.
@@ -735,6 +821,7 @@ namespace Tomasulo
                             if (storeStation.Qj[i].waitState == WaitInfo.WaitState.Avail)
                             {
                                 storeStation.Vj[i] = new Operand(Operand.OperandType.Num, storeStation.Qj[i].value);
+                                ROB.j[storeStation.robNum[i]] = storeStation.Vj[i];
                                 storeStation.Qj[i] = null;
                             }
                         }
@@ -746,6 +833,13 @@ namespace Tomasulo
                         storeStation.remainingCycles[i] = -1;
                         storeStation.isReady[i] = false;
                         storeStation.addrReady[i] = true;
+                    }
+                    if (storeStation.robNum[i] != -1)
+                    {
+                        if (ROB.state[storeStation.robNum[i]] == ReorderBuffer.State.Issue)
+                        {
+                            ROB.state[storeStation.robNum[i]] = ReorderBuffer.State.Execute;
+                        }
                     }
                 }
             }
@@ -760,6 +854,7 @@ namespace Tomasulo
                         if (branchStation.Qj[i].waitState == WaitInfo.WaitState.Avail)
                         {
                             branchStation.Vj[i] = new Operand(Operand.OperandType.Num, branchStation.Qj[i].value);
+                            ROB.j[branchStation.robNum[i]] = branchStation.Vj[i];
                             branchStation.Qj[i] = null;
                         }
                     }
@@ -768,6 +863,7 @@ namespace Tomasulo
                         if (branchStation.Qk[i].waitState == WaitInfo.WaitState.Avail)
                         {
                             branchStation.Vk[i] = new Operand(Operand.OperandType.Num, branchStation.Qk[i].value);
+                            ROB.k[branchStation.robNum[i]] = branchStation.Vk[i];
                             branchStation.Qk[i] = null;
                         }
                     }
@@ -777,6 +873,14 @@ namespace Tomasulo
                     if (executeClocks[branchStation.instrNum[i]] == -1)
                     {
                         executeClocks[branchStation.instrNum[i]] = clocks;
+                    }
+                }
+
+                if (branchStation.robNum[i] != -1)
+                {
+                    if (ROB.state[branchStation.robNum[i]] == ReorderBuffer.State.Issue)
+                    {
+                        ROB.state[branchStation.robNum[i]] = ReorderBuffer.State.Execute;
                     }
                 }
 
@@ -820,6 +924,11 @@ namespace Tomasulo
             {
                 if (addStation.isReady[i])
                 {
+                    if (ROB.state[addStation.robNum[i]] == ReorderBuffer.State.Execute)
+                    {
+                        ROB.state[addStation.robNum[i]] = ReorderBuffer.State.Write;
+                    }
+
                     writeClocks[addStation.instrNum[i]] = clocks;
                     if (addStation.dest[i].opType == Operand.OperandType.FloatReg)
                     {
@@ -848,6 +957,11 @@ namespace Tomasulo
             {
                 if (multiplyStation.isReady[i])
                 {
+                    if (ROB.state[multiplyStation.robNum[i]] == ReorderBuffer.State.Execute)
+                    {
+                        ROB.state[multiplyStation.robNum[i]] = ReorderBuffer.State.Write;
+                    }
+
                     writeClocks[multiplyStation.instrNum[i]] = clocks;
                     if (multiplyStation.dest[i].opType == Operand.OperandType.FloatReg)
                     {
@@ -876,6 +990,11 @@ namespace Tomasulo
             {
                 if (loadStation.isReady[i])
                 {
+                    if (ROB.state[loadStation.robNum[i]] == ReorderBuffer.State.Execute)
+                    {
+                        ROB.state[loadStation.robNum[i]] = ReorderBuffer.State.Write;
+                    }
+
                     writeClocks[loadStation.instrNum[i]] = clocks;
                     if (loadStation.dest[i].opType == Operand.OperandType.FloatReg)
                     {
@@ -904,6 +1023,10 @@ namespace Tomasulo
             {
                 if (storeStation.isReady[i])
                 {   // Ready.
+                    if (ROB.state[storeStation.robNum[i]] == ReorderBuffer.State.Execute)
+                    {
+                        ROB.state[storeStation.robNum[i]] = ReorderBuffer.State.Write;
+                    }
                     ROB.destType[storeStation.robNum[i]] = ReorderBuffer.ROBDestination.FReg;
                     ROB.destLoc[storeStation.robNum[i]] = (int) storeStation.dest[i].opVal;
                     ROB.result[storeStation.robNum[i]] = storeStation.results[i];
@@ -917,6 +1040,11 @@ namespace Tomasulo
             {
                 if (branchStation.isReady[i])
                 {
+                    if (ROB.state[branchStation.robNum[i]] == ReorderBuffer.State.Execute)
+                    {
+                        ROB.state[branchStation.robNum[i]] = ReorderBuffer.State.Write;
+                    }
+
                     predictedBranchTaken[i] = false;
                     writeClocks[branchStation.instrNum[i]] = clocks;
                     ROB.branchAmt[branchStation.robNum[i]] = (int) branchStation.DetermineBranch(floatRegs, intRegs, i);
@@ -928,8 +1056,12 @@ namespace Tomasulo
 
         private void Commit()
         {
+            oldHead = -1;
             if (ROB.resultWritten[ROB.head])
             {
+                oldHead = ROB.head;
+                ROB.state[ROB.head] = ReorderBuffer.State.Commit;
+                commitClocks[ROB.instrNum[ROB.head]] = clocks;
                 if (ROB.instrType[ROB.head] == Instruction.InstructionType.Branch)
                 {
                     if (ROB.branchAmt[ROB.head] == 0)

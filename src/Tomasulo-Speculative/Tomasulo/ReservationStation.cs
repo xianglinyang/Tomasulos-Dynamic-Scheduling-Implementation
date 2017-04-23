@@ -73,35 +73,43 @@ namespace Tomasulo
             cyclesToComplete[index] = instr.cyclesToComplete;
             robNum[index] = robIndex;
 
+            ROB.state[robIndex] = ReorderBuffer.State.Issue;
+
             if (wsJ.waitState == WaitInfo.WaitState.Avail)
             {
                 Vj[index] = new Operand(Operand.OperandType.Num, wsJ.value);
+                ROB.j[robIndex] = Vj[index];
                 Qj[index] = null;
             }
             else if ((wsJ.waitState == WaitInfo.WaitState.ReorderBuffer) && (ROB.ready[(int) wsJ.value]))
             {
                 Vj[index] = new Operand(Operand.OperandType.Num, ROB.result[(int) wsJ.value]);
+                ROB.j[robIndex] = Vj[index];
                 Qj[index] = null;
             }
             else
             {
                 Vj[index] = null;
+                ROB.j[robIndex] = null;
                 Qj[index] = wsJ;
             }
 
             if (wsK.waitState == WaitInfo.WaitState.Avail)
             {
                 Vk[index] = new Operand(Operand.OperandType.Num, wsK.value);
+                ROB.k[robIndex] = Vk[index];
                 Qk[index] = null;
             }
             else if ((wsK.waitState == WaitInfo.WaitState.ReorderBuffer) && (ROB.ready[(int) wsK.value]))
             {
                 Vk[index] = new Operand(Operand.OperandType.Num, ROB.result[(int) wsK.value]);
+                ROB.k[robIndex] = Vk[index];
                 Qk[index] = null;
             }
             else
             {
                 Vk[index] = null;
+                ROB.k[robIndex] = null;
                 Qk[index] = wsK;
             }
         }
