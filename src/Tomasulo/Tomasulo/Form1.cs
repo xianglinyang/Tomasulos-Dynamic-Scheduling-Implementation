@@ -6,7 +6,8 @@ namespace Tomasulo
 {
     public partial class Form1 : Form
     {
-        InstructionUnit instructionUnit = new InstructionUnit();
+        Form2 form2;
+        public InstructionUnit instructionUnit = new InstructionUnit();
         Instruction[] originalInstructions;
         ReservationStation loadStation, storeStation, addStation, multiplyStation, branchStation;
         FloatingPointRegisters floatRegs;
@@ -27,19 +28,9 @@ namespace Tomasulo
         private void loadBuffers_SelectedIndexChanged(object sender, EventArgs e)
         {}
 
-        private void Form1_Load(object sender, EventArgs e)
+        public void Init()
         {
-            // Temporary. Will eventually get from user.
-            instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.LD, "F6", "34+", "R2"));
-            instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.LD, "F2", "45+", "R3"));
-            instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.SD, "F2", "3", "R3"));
-            instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.LD, "F25", "3+", "0"));
-            instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.MULD, "F0", "F2", "F4"));
-            instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.SUBD, "F8", "F0", "F6"));
-            instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.DIVD, "F10", "F0", "F6"));
-            instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.ADDD, "F6", "F8", "F2"));
-            instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.BNE, "-8", "F6", "F10"));
-
+            clocks = 0;
             originalInstructions = instructionUnit.GetCurrentInstructions();
 
             issueClocks = new int[100];
@@ -77,6 +68,24 @@ namespace Tomasulo
             UpdateFPRegisterBox();
             UpdateIntRegisterBox();
             UpdateClockCountBox();
+        }
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
+            form2 = new Form2();
+
+            // Defaults. Can also get from user.
+            instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.LD, "F6", "34+", "R2"));
+            instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.LD, "F2", "45+", "R3"));
+            instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.SD, "F2", "3", "R3"));
+            instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.LD, "F25", "3+", "0"));
+            instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.MULD, "F0", "F2", "F4"));
+            instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.SUBD, "F8", "F0", "F6"));
+            instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.DIVD, "F10", "F0", "F6"));
+            instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.ADDD, "F6", "F8", "F2"));
+            instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.BNE, "-8", "F6", "F10"));
+
+            Init();
         }
         
         private void UpdateIssuedInstructionsBox()
@@ -485,6 +494,24 @@ namespace Tomasulo
                     }
                     break;
             }
+        }
+
+        private void editInstructions_Click(object sender, EventArgs e)
+        {
+            form2.parent = this;
+            form2.insts = instructionUnit.GetCurrentInstructions();
+            form2.Show();
+            Hide();
+        }
+
+        private void button1_Click(object sender, EventArgs e)
+        {
+            instructionUnit.ClearInstructions();
+            foreach (Instruction inst in originalInstructions)
+            {
+                instructionUnit.AddInstruction(inst);
+            }
+            Init();
         }
 
         private void Execute()

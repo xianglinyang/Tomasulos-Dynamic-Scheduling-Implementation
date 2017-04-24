@@ -12,6 +12,11 @@ namespace Tomasulo
             instructions.Enqueue(instruct);
         }
 
+        public void ClearInstructions()
+        {
+            instructions = new Queue<Instruction>();
+        }
+
         public Instruction GetInstruction()
         {
             return instructions.Dequeue();

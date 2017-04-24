@@ -54,6 +54,7 @@
             this.ReorderBuf = new System.Windows.Forms.ListView();
             this.label13 = new System.Windows.Forms.Label();
             this.label14 = new System.Windows.Forms.Label();
+            this.button1 = new System.Windows.Forms.Button();
             this.SuspendLayout();
             // 
             // instructionQueue
@@ -242,6 +243,7 @@
             this.editInstructions.TabIndex = 26;
             this.editInstructions.Text = "Edit";
             this.editInstructions.UseVisualStyleBackColor = true;
+            this.editInstructions.Click += new System.EventHandler(this.editInstructions_Click);
             // 
             // issuedInstructionBox
             // 
@@ -299,11 +301,22 @@
             this.label14.TabIndex = 32;
             this.label14.Text = "Buffer";
             // 
+            // button1
+            // 
+            this.button1.Location = new System.Drawing.Point(122, 3);
+            this.button1.Name = "button1";
+            this.button1.Size = new System.Drawing.Size(75, 23);
+            this.button1.TabIndex = 33;
+            this.button1.Text = "Reset";
+            this.button1.UseVisualStyleBackColor = true;
+            this.button1.Click += new System.EventHandler(this.button1_Click);
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(956, 606);
+            this.Controls.Add(this.button1);
             this.Controls.Add(this.label14);
             this.Controls.Add(this.label13);
             this.Controls.Add(this.ReorderBuf);
@@ -366,6 +379,7 @@
         private System.Windows.Forms.ListView ReorderBuf;
         private System.Windows.Forms.Label label13;
         private System.Windows.Forms.Label label14;
+        private System.Windows.Forms.Button button1;
     }
 }
 

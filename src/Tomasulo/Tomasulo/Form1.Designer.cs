@@ -51,6 +51,7 @@
             this.issuedInstructionBox = new System.Windows.Forms.ListView();
             this.label11 = new System.Windows.Forms.Label();
             this.label12 = new System.Windows.Forms.Label();
+            this.button1 = new System.Windows.Forms.Button();
             this.SuspendLayout();
             // 
             // instructionQueue
@@ -239,6 +240,7 @@
             this.editInstructions.TabIndex = 26;
             this.editInstructions.Text = "Edit";
             this.editInstructions.UseVisualStyleBackColor = true;
+            this.editInstructions.Click += new System.EventHandler(this.editInstructions_Click);
             // 
             // issuedInstructionBox
             // 
@@ -268,11 +270,22 @@
             this.label12.TabIndex = 29;
             this.label12.Text = "Status";
             // 
+            // button1
+            // 
+            this.button1.Location = new System.Drawing.Point(125, 4);
+            this.button1.Name = "button1";
+            this.button1.Size = new System.Drawing.Size(75, 23);
+            this.button1.TabIndex = 30;
+            this.button1.Text = "Reset";
+            this.button1.UseVisualStyleBackColor = true;
+            this.button1.Click += new System.EventHandler(this.button1_Click);
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(956, 474);
+            this.Controls.Add(this.button1);
             this.Controls.Add(this.label12);
             this.Controls.Add(this.label11);
             this.Controls.Add(this.issuedInstructionBox);
@@ -329,6 +342,7 @@
         private System.Windows.Forms.ListView issuedInstructionBox;
         private System.Windows.Forms.Label label11;
         private System.Windows.Forms.Label label12;
+        private System.Windows.Forms.Button button1;
     }
 }
 
