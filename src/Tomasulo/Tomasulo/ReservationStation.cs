@@ -19,7 +19,9 @@ namespace Tomasulo
         public List<bool> isReady = new List<bool>();
         public List<bool> addrReady = new List<bool>();
         public List<int> instrNum = new List<int>();
-        public int numBuffers = 2;
+        public int numBuffers = 1;
+
+
 
         private List<bool> busy = new List<bool>();
         private RSType rsType;
@@ -49,6 +51,39 @@ namespace Tomasulo
             }
         }
 
+        public void ClearReservation()
+        {
+            opCodes.Clear();
+            addresses.Clear();
+            busy.Clear();
+            Qj.Clear();
+            Qk.Clear();
+            Vj.Clear();
+            Vk.Clear();
+            dest.Clear();
+            states.Clear();
+            remainingCycles.Clear();
+            cyclesToComplete.Clear();
+            results.Clear();
+            isReady.Clear();
+            addrReady.Clear();
+            instrNum.Clear();
+
+        }
+
+        public bool IsAllBufferFree()
+        {
+            for (int i = 0; i < numBuffers; i++)
+            {
+                if (busy[i])
+                {
+                    return false;
+                }
+            }
+            return true;
+
+        }
+
         public int GetFreeBuffer()
         {
             for (int i = 0; i < numBuffers; i++)
@@ -61,14 +96,17 @@ namespace Tomasulo
             return -1;
         }
 
+        //改完就都有一个周期的延迟了
         public void PutInBuffer(Instruction instr, int index, Operand jReg, Operand kReg,
-            WaitInfo wsJ, WaitInfo wsK)
+            WaitInfo wsJ, WaitInfo wsK,int delay)
         {
             dest[index] = new Operand(instr.dest);
             busy[index] = true;
             opCodes[index] = instr.opcode;
             states[index] = Instruction.State.Issue;
-            cyclesToComplete[index] = instr.cyclesToComplete;
+
+            //延迟
+            cyclesToComplete[index] = instr.cyclesToComplete + delay-1;
 
             if (wsJ.waitState == WaitInfo.WaitState.Avail)
             {
@@ -97,7 +135,8 @@ namespace Tomasulo
         {
             return busy[index];
         }
-
+        //执行过程，有一个时钟周期的延迟，改完之后就没了，还没改
+        //已改
         public int RunExecution(int index)
         {   // -1 = not yet in exec, 0 = finished, > 0 means n cycles left.
             if ((Vj[index] != null) && (Vk[index] != null))
@@ -105,14 +144,14 @@ namespace Tomasulo
                 if (remainingCycles[index] == -1)
                 {
                     remainingCycles[index] = cyclesToComplete[index];
-                    states[index] = Instruction.State.Exec_Inprog;
+                    states[index] = Instruction.State.Exec_Inprog;//开始执行
                 }
                 else
                 {
                     if (remainingCycles[index] == 0)
                     {
                         isReady[index] = true;
-                        states[index] = Instruction.State.Exec_Fin;
+                        states[index] = Instruction.State.Exec_Fin;//结束执行，这里一定会有一个时钟周期的延迟，因为分成了两个循环，没有马上判断
                         return 0;
                     }
                     else
@@ -171,27 +210,15 @@ namespace Tomasulo
             return jVal + kVal;
         }
 
+        //流出问题,其实是得到数值设置的延迟
+        //看懂了！为什么之前是1 4 7？
+        //之前的remaincycle是在这里起作用的
         public int GetFromMemory(int index, FloatingPointMemoryArrary memory)
         {
-            if (remainingCycles[index] == -1)
-            {
-                remainingCycles[index] = cyclesToComplete[index];
-                states[index] = Instruction.State.Exec_Inprog;
-                return remainingCycles[index]--;
-            }
-            else
-            {
-                if (remainingCycles[index] == 0)
-                {
-                    isReady[index] = true;
-                    states[index] = Instruction.State.Exec_Fin;
-                    return 0;
-                }
-                else
-                {
-                    return remainingCycles[index]--;
-                }
-            }
+            remainingCycles[index] = -1;
+            isReady[index] = true;
+            states[index] = Instruction.State.Exec_Fin;//直接设置结束执行，WB之前不会有延迟了
+            return -1;
         }
 
         public float DetermineBranch(FloatingPointRegisters floatRegs, IntegerRegisters intRegs, int index)

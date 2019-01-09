@@ -1,12 +1,23 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Windows.Forms;
+using System.Threading;
+using System.Text;
+using System.IO;
 
 namespace Tomasulo
 {
     public partial class Form1 : Form
     {
         Form2 form2;
+        Form3 form3;//添加浮点、通用寄存器值
+
+        //暂停、继续标志
+        bool pause_or_continue = true;
+        bool run = true;
+        public List<int> delay;
+        public int click = 0;
+
         public InstructionUnit instructionUnit = new InstructionUnit();
         Instruction[] originalInstructions;
         ReservationStation loadStation, storeStation, addStation, multiplyStation, branchStation;
@@ -31,6 +42,7 @@ namespace Tomasulo
         public void Init()
         {
             clocks = 0;
+            //设置原始代码，重点在于instructionUnit，
             originalInstructions = instructionUnit.GetCurrentInstructions();
 
             issueClocks = new int[100];
@@ -44,18 +56,14 @@ namespace Tomasulo
                 writeClocks[i] = -1;
             }
 
-            loadStation = new ReservationStation(3, ReservationStation.RSType.Load);
-            storeStation = new ReservationStation(3, ReservationStation.RSType.Store);
-            addStation = new ReservationStation(3, ReservationStation.RSType.Add);
-            multiplyStation = new ReservationStation(2, ReservationStation.RSType.Multiply);
-            branchStation = new ReservationStation(5, ReservationStation.RSType.Multiply);
-
             floatRegs = new FloatingPointRegisters(30);
             for (int i = 0; i < 30; i++)
             {
                 floatRegs.Set(WaitInfo.WaitState.Avail, i + 1, i);
             }
+            //初始化整型寄存器
             intRegs = new IntegerRegisters(30);
+            //初始化浮点寄存器
             memLocs = new FloatingPointMemoryArrary(64);
             for (int i = 0; i < 64; i++)
             {
@@ -64,15 +72,29 @@ namespace Tomasulo
 
             UpdateInstructionQueueBox();
             UpdateIssuedInstructionsBox();
-            UpdateReservationStationBoxes();
             UpdateFPRegisterBox();
             UpdateIntRegisterBox();
             UpdateClockCountBox();
+
+            //初始化bool值，可以自动开始或者暂停
+            pause_or_continue = true;
+            run = true;
         }
 
         private void Form1_Load(object sender, EventArgs e)
+
         {
             form2 = new Form2();
+            form3 = new Form3();
+            delay = new List<int>();
+            //默认延迟都是一个周期
+            delay.Add(1);//load默认值
+            delay.Add(1);//add
+            delay.Add(1);//multi
+            delay.Add(1);//div
+            delay.Add(1);//store
+            delay.Add(1);//branch
+
 
             // Defaults. Can also get from user.
             instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.LD, "F6", "34+", "R2"));
@@ -84,10 +106,73 @@ namespace Tomasulo
             instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.DIVD, "F10", "F0", "F6"));
             instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.ADDD, "F6", "F8", "F2"));
             instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.BNE, "-8", "F6", "F10"));
+            //保留站初始化
+            loadStation = new ReservationStation(3, ReservationStation.RSType.Load);
+            storeStation = new ReservationStation(3, ReservationStation.RSType.Store);
+            addStation = new ReservationStation(3, ReservationStation.RSType.Add);
+            multiplyStation = new ReservationStation(2, ReservationStation.RSType.Multiply);
+            branchStation = new ReservationStation(5, ReservationStation.RSType.Multiply);
+            UpdateReservationStationBoxes();
+
+
+
 
             Init();
         }
+
+        //批量设置浮点寄存器值
+        public void SetFloatingPointMemory(float value)
+        {
+            for (int i = 0; i < 30; i++)
+            {
+                floatRegs.Set(WaitInfo.WaitState.Avail, value, i);
+            }
+        }
+
+        //设置单个浮点寄存器值
+        public void SetSingleFloatPointMemory(float value,int index)
+        {
+            floatRegs.Set(WaitInfo.WaitState.Avail, value, index);
+        }
+
+        //批量设置通用寄存器值
+        public void SetIntRegister(int value)
+        {
+            for (int i = 0; i < 30; i++)
+            {
+                intRegs.Set(WaitInfo.WaitState.Avail, value, i);
+            }
+
+        }
         
+        //设置单个通用寄存器值
+        public void SetSingleIntRegister(int value,int index)
+        {
+            intRegs.Set(WaitInfo.WaitState.Avail, value, index);
+        }
+
+        //批量设置存储器
+        public void SetFloatingPointMemoryArray(float value_float)
+        {
+            for(int i = 0; i < 64; i++)
+            {
+                memLocs.Set(value_float, i);
+            }
+
+        }
+
+        //检查保留站是否还有剩余，用于自动执行停下
+        //true表示所有的保留站都是空的
+        public bool IsAllBufferFree()
+        {
+            if (!addStation.IsAllBufferFree()) return false;
+            if (!storeStation.IsAllBufferFree()) return false;
+            if (!multiplyStation.IsAllBufferFree()) return false;
+            if (!branchStation.IsAllBufferFree()) return false;
+            if (!loadStation.IsAllBufferFree()) return false;
+            return true;
+        }
+
         private void UpdateIssuedInstructionsBox()
         {
             issuedInstructionBox.Clear();
@@ -144,7 +229,7 @@ namespace Tomasulo
             reservationStation1.Clear();
             reservationStation1.View = View.Details;
             reservationStation1.Columns.Add("Name", 50);
-            reservationStation1.Columns.Add("Busy", 35);
+            reservationStation1.Columns.Add("Busy", 50);
             reservationStation1.Columns.Add("Op", 50);
             reservationStation1.Columns.Add("Vj", 50);
             reservationStation1.Columns.Add("Vk", 50);
@@ -173,7 +258,7 @@ namespace Tomasulo
             reservationStation2.Clear();
             reservationStation2.View = View.Details;
             reservationStation2.Columns.Add("Name", 50);
-            reservationStation2.Columns.Add("Busy", 35);
+            reservationStation2.Columns.Add("Busy", 50);
             reservationStation2.Columns.Add("Op", 50);
             reservationStation2.Columns.Add("Vj", 50);
             reservationStation2.Columns.Add("Vk", 50);
@@ -216,8 +301,8 @@ namespace Tomasulo
             // Store.
             storeBuffers.Clear();
             storeBuffers.View = View.Details;
-            storeBuffers.Columns.Add("Name", 40);
-            storeBuffers.Columns.Add("Busy", 35);
+            storeBuffers.Columns.Add("Name", 50);
+            storeBuffers.Columns.Add("Busy", 50);
             storeBuffers.Columns.Add("Addr", 50);
             storeBuffers.Columns.Add("Q", 50);
             storeBuffers.Columns.Add("V", 50);
@@ -235,7 +320,7 @@ namespace Tomasulo
             }
         }
 
-        private void UpdateFPRegisterBox()
+        public void UpdateFPRegisterBox()
         {
             fpRegisters.Clear();
             fpRegisters.View = View.Details;
@@ -278,7 +363,7 @@ namespace Tomasulo
             fpRegisters.Items.Add(row);
         }
 
-        private void UpdateIntRegisterBox()
+        public void UpdateIntRegisterBox()
         {
             intRegisters.Clear();
             intRegisters.View = View.Details;
@@ -324,9 +409,14 @@ namespace Tomasulo
         // This is the main method that will run a cycle using Tomasulo's Algorithm.
         private void RunOneCycle()
         {   // Do backwards so that only 1 stage is run on each instruction per cycle.
+            //所以也出现了错误，本来这三个是没有先后顺序的，现在变成有先后顺序，所以会有错
             Write();
             Execute();
             Issue();
+            //这里调换了以下顺序，感觉这样才是对的
+            //后来发现，如果先流入，然后执行，就变成一个时钟周期会做三件事，这样更错
+            //QAQ
+            //无解
 
             UpdateInstructionQueueBox();
             UpdateIssuedInstructionsBox();
@@ -357,7 +447,8 @@ namespace Tomasulo
             }
         }
 
-        private void Issue()
+        //流入
+        private void Issue()//所有的延迟都在这边，参数传入
         {
             // If empty.
             if (instructionUnit.GetCurrentInstructions().Length == 0) return;
@@ -383,7 +474,7 @@ namespace Tomasulo
                         issuedInstructions.Add(instruction);
                         issueClocks[numIssued++] = clocks;
                         addStation.PutInBuffer(instructionUnit.GetInstruction(),
-                            bufNum, jReg, kReg, wsJ, wsK);
+                            bufNum, jReg, kReg, wsJ, wsK, delay[1]);
                         addStation.instrNum[bufNum] = issuedInstructions.Count - 1;
 
                         // Set Dest Reg.
@@ -412,8 +503,11 @@ namespace Tomasulo
                         // Issue.
                         issuedInstructions.Add(instruction);
                         issueClocks[numIssued++] = clocks;
-                        multiplyStation.PutInBuffer(instructionUnit.GetInstruction(),
-                            bufNum, jReg, kReg, wsJ, wsK);
+                        if(instruction.opcode==Instruction.Opcodes.MULD)
+                            multiplyStation.PutInBuffer(instructionUnit.GetInstruction(),
+                            bufNum, jReg, kReg, wsJ, wsK,delay[2]);
+                        else multiplyStation.PutInBuffer(instructionUnit.GetInstruction(),
+                            bufNum, jReg, kReg, wsJ, wsK, delay[3]);
                         multiplyStation.instrNum[bufNum] = issuedInstructions.Count - 1;
 
                         // Set Dest Reg.
@@ -441,7 +535,7 @@ namespace Tomasulo
                         issuedInstructions.Add(instruction);
                         issueClocks[numIssued++] = clocks;
                         loadStation.PutInBuffer(instructionUnit.GetInstruction(),
-                            bufNum, jReg, kReg, wsJ, wsK);
+                            bufNum, jReg, kReg, wsJ, wsK, delay[0]);
                         loadStation.instrNum[bufNum] = issuedInstructions.Count - 1;
 
                         // Set Dest Reg.
@@ -469,8 +563,20 @@ namespace Tomasulo
                         issuedInstructions.Add(instruction);
                         issueClocks[numIssued++] = clocks;
                         storeStation.PutInBuffer(instructionUnit.GetInstruction(),
-                            bufNum, jReg, kReg, wsJ, wsK);
+                            bufNum, jReg, kReg, wsJ, wsK,delay[4]);
                         storeStation.instrNum[bufNum] = issuedInstructions.Count - 1;
+
+                        //原来居然没写！！！
+                        if (instruction.dest.Substring(0, 1) == "F")
+                        {
+                            floatRegs.Set(WaitInfo.WaitState.StoreStation, bufNum,
+                            Int32.Parse(instruction.dest.Substring(1)));
+                        }
+                        else
+                        {
+                            intRegs.Set(WaitInfo.WaitState.StoreStation, bufNum,
+                            Int32.Parse(instruction.dest.Substring(1)));
+                        }
                     }
                     else
                     {
@@ -485,8 +591,9 @@ namespace Tomasulo
                         issuedInstructions.Add(instruction);
                         issueClocks[numIssued++] = clocks;
                         branchStation.PutInBuffer(instructionUnit.GetInstruction(),
-                            bufNum, jReg, kReg, wsJ, wsK);
+                            bufNum, jReg, kReg, wsJ, wsK,delay[5]);
                         branchStation.instrNum[bufNum] = issuedInstructions.Count - 1;
+
                     }
                     else
                     {
@@ -496,6 +603,7 @@ namespace Tomasulo
             }
         }
 
+        //修改代码
         private void editInstructions_Click(object sender, EventArgs e)
         {
             form2.parent = this;
@@ -503,7 +611,8 @@ namespace Tomasulo
             form2.Show();
             Hide();
         }
-
+        
+        //reset
         private void button1_Click(object sender, EventArgs e)
         {
             instructionUnit.ClearInstructions();
@@ -514,6 +623,375 @@ namespace Tomasulo
             Init();
         }
 
+        //设置浮点、通用寄存器的值
+        private void setfloatvalue_Click(object sender, EventArgs e)
+        {
+            form3.parent = this;
+            form3.Show();
+            Hide();
+        }
+
+        //自动
+        private void Auto_Click(object sender, EventArgs e)
+        {
+            run = true;
+            while (run)
+            {
+                if (!pause_or_continue) break;
+                //缺少一个执行完毕可以停下来
+               // if (instructionUnit.GetCurrentInstructions().Length == 0) break;
+               //如果每个保留站都是空的，则完成
+                System.Threading.Thread.Sleep(1000);
+                clocks++;
+                RunOneCycle();
+                UpdateClockCountBox();
+                //TODO:每个保留站检查是否清空
+                Application.DoEvents();
+                if (IsAllBufferFree()) break;
+            }
+
+        }
+        
+        //暂停or继续，通过一个bool值
+        private void button2_Click(object sender, EventArgs e)
+        {
+            pause_or_continue = !pause_or_continue;
+            Auto_Click(sender, e);
+        }
+
+        //停止进程
+        private void Stop_Click(object sender, EventArgs e)
+        {
+            run = false;
+        }
+
+        //疯了，怎么会有这么蠢的方法
+        private void read_file_Click(object sender, EventArgs e)
+        {
+            FileStream fs = new FileStream("program.txt", FileMode.Open, FileAccess.Read);
+            StreamReader read = new StreamReader(fs, Encoding.Default);
+            string strReadline;
+            //一个操作码和三个操作数
+            string s2 = "", s3 = "", s4 = "";
+            int i = 0;
+            instructionUnit.ClearInstructions();
+            while ((strReadline = read.ReadLine()) != null)
+            {
+                switch (strReadline[0])
+                {
+                    case 'L':
+                        i = 3;
+                        while (strReadline[i] != ',')
+                        {
+                            s2 = s2 + strReadline[i];
+                            i++;
+                        }
+                        i++;
+                        while (strReadline[i] != '(')
+                        {
+                            s3 = s3 + strReadline[i];
+                            i++;
+                        }
+                        s3 = s3 + '+';
+                        i++;
+                        while (strReadline[i] != ')')
+                        {
+                            s4 = s4 + strReadline[i];
+                            i++;
+                        }
+                        instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.LD, s2, s3, s4));
+                        s2 = "";
+                        s3 = "";
+                        s4 = "";
+                        break;
+                    case 'S':
+                        if (strReadline[1] == 'D')
+                        {
+                          i = 3;
+                        while (strReadline[i] != ',')
+                        {
+                            s2 = s2 + strReadline[i];
+                            i++;
+                        }
+                        i++;
+                        while (strReadline[i] != ',')
+                        {
+                            s3 = s3 + strReadline[i];
+                            i++;
+                        }
+                        i++;
+                        while (true)
+                        {
+                            s4 = s4 + strReadline[i];
+                            i++;
+                            if (i == strReadline.Length) break;
+                        }
+                            instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.SD, s2, s3, s4));
+                            s2 = "";
+                            s3 = "";
+                            s4 = "";
+                            break;
+                        }
+                        else//SUBD
+                        {
+                            i = 5;
+                            while (strReadline[i] != ',')
+                            {
+                                s2 = s2 + strReadline[i];
+                                i++;
+                            }
+                            i++;
+                            while (strReadline[i] != ',')
+                            {
+                                s3 = s3 + strReadline[i];
+                                i++;
+                            }
+                            i++;
+                            while (true)
+                            {
+                                s4 = s4 + strReadline[i];
+                                i++;
+                                if (i == strReadline.Length) break;
+                            }
+                            instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.SUBD, s2, s3, s4));
+                            s2 = "";
+                            s3 = "";
+                            s4 = "";
+                            break;
+                        }
+                    case 'A':
+                        i = 5;
+                        while (strReadline[i] != ',')
+                        {
+                            s2 = s2 + strReadline[i];
+                            i++;
+                        }
+                        i++;
+                        while (strReadline[i] != ',')
+                        {
+                            s3 = s3 + strReadline[i];
+                            i++;
+                        }
+                        i++;
+                        while (true)
+                        {
+                            s4 = s4 + strReadline[i];
+                            i++;
+                            if (i == strReadline.Length) break;
+                        }
+                        instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.ADDD, s2, s3, s4));
+                        s2 = "";
+                        s3 = "";
+                        s4 = "";
+                        break;
+                    case 'M':
+                        i = 5;
+                        while (strReadline[i] != ',')
+                        {
+                            s2 = s2 + strReadline[i];
+                            i++;
+                        }
+                        i++;
+                        while (strReadline[i] != ',')
+                        {
+                            s3 = s3 + strReadline[i];
+                            i++;
+                        }
+                        i++;
+                        while (true)
+                        {
+                            s4 = s4 + strReadline[i];
+                            i++;
+                            if (i == strReadline.Length) break;
+                        }
+                        instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.MULD, s2, s3, s4));
+                        s2 = "";
+                        s3 = "";
+                        s4 = "";
+                        break;
+                    case 'D':
+                        i = 5;
+                        while (strReadline[i] != ',')
+                        {
+                            s2 = s2 + strReadline[i];
+                            i++;
+                        }
+                        i++;
+                        while (strReadline[i] != ',')
+                        {
+                            s3 = s3 + strReadline[i];
+                            i++;
+                        }
+                        i++;
+                        while (true)
+                        {
+                            s4 = s4 + strReadline[i];
+                            i++;
+                            if (i == strReadline.Length) break;
+                        }
+                        instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.DIVD, s2, s3, s4));
+                        s2 = "";
+                        s3 = "";
+                        s4 = "";
+                        break;
+                    case 'B':
+                        i = 4;
+                        while (strReadline[i] != ',')
+                        {
+                            s2 = s2 + strReadline[i];
+                            i++;
+                        }
+                        i++;
+                        while (strReadline[i] != ',')
+                        {
+                            s3 = s3 + strReadline[i];
+                            i++;
+                        }
+                        i++;
+                        while (true)
+                        {
+                            s4 = s4 + strReadline[i];
+                            i++;
+                            if (i == strReadline.Length) break;
+                        }
+                        instructionUnit.AddInstruction(new Instruction(Instruction.Opcodes.BNE, s2, s3, s4));
+                        s2 = "";
+                        s3 = "";
+                        s4 = "";
+                        break;
+                }
+            }
+            fs.Close();
+            read.Close();
+            UpdateInstructionQueueBox();
+        }
+
+        //一如既往的蠢
+        private void Reservation_read_Click(object sender, EventArgs e)
+        {
+            FileStream fs = new FileStream("parts.txt", FileMode.Open, FileAccess.Read);
+            StreamReader read = new StreamReader(fs, Encoding.Default);
+            string strReadline;
+            int i = 0, read_delay, read_number, read_delay2;
+            string s1 = "", s2 = "", s3 = "";
+            //清空原来的
+                addStation.ClearReservation();
+                storeStation.ClearReservation();
+                loadStation.ClearReservation();
+                multiplyStation.ClearReservation();
+                branchStation.ClearReservation();
+
+            while ((strReadline = read.ReadLine())!= null)
+            {
+                switch (strReadline[0])
+                {
+                    case 'L':
+                        i = 5;
+                        while(strReadline[i]!=' ')
+                        {
+                            s1 = s1 + strReadline[i];
+                            i++;
+                        }
+                        i++;
+                        while (i < strReadline.Length)
+                        {
+                            s2 = s2 + strReadline[i];
+                            i++;
+                        }
+                        read_delay = int.Parse(s1);
+                        read_number = int.Parse(s2);
+                        delay[0] = read_delay;
+                        loadStation = new ReservationStation(read_number, ReservationStation.RSType.Load);
+                        s1 = "";
+                        s2 = "";
+                        s3 = "";
+                        break;
+                    case 'A':
+                        i = 4;
+                        while (strReadline[i] != ' ')
+                        {
+                            s1 = s1 + strReadline[i];
+                            i++;
+                        }
+                        i++;
+                        while (i < strReadline.Length)
+                        {
+                            s2 = s2 + strReadline[i];
+                            i++;
+                        }
+                        read_delay = int.Parse(s1);
+                        delay[1] = read_delay;
+                        read_number = int.Parse(s2);
+                        addStation = new ReservationStation(read_number, ReservationStation.RSType.Add);
+                        s1 = "";
+                        s2 = "";
+                        s3 = "";
+                        break;
+                    case 'M':
+                        i = 6;
+                        while (strReadline[i] != ',')
+                        {
+                            s1 = s1 + strReadline[i];
+                            i++;
+                        }
+                        i++;
+                        while (strReadline[i]!=' ')
+                        {
+                            s2 = s2 + strReadline[i];
+                            i++;
+                        }
+                        i++;
+                        while (i < strReadline.Length)
+                        {
+                            s3 = s3 + strReadline[i];
+                            i++;
+                        }
+                        read_delay = int.Parse(s1);
+                        read_delay2 = int.Parse(s2);
+                        read_number = int.Parse(s3);
+                        delay[2] = read_delay;
+                        delay[3] = read_delay2;
+                        multiplyStation = new ReservationStation(read_number, ReservationStation.RSType.Multiply);
+                        s1 = "";
+                        s2 = "";
+                        s3 = "";
+                        break;
+                    case 'S':
+                        i = 6;
+                        while (strReadline[i] != ' ')
+                        {
+                            s1 = s1 + strReadline[i];
+                            i++;
+                        }
+                        i++;
+                        while (i < strReadline.Length)
+                        {
+                            s2 = s2 + strReadline[i];
+                            i++;
+                        }
+                        read_delay = int.Parse(s1);
+                        read_number = int.Parse(s2);
+                        delay[4] = read_delay;
+                        storeStation = new ReservationStation(read_number, ReservationStation.RSType.Store);
+                        s1 = "";
+                        s2 = "";
+                        s3 = "";
+                        break;
+                    case '#':
+                        break;
+                }
+            }
+            
+            fs.Close();
+            read.Close();
+            branchStation = new ReservationStation(5, ReservationStation.RSType.Multiply);
+            UpdateReservationStationBoxes();
+        }
+
+        
+
+        //load和store延2，add和multi延1，分支延1，原本
+        //修改后都需要经过RunExecution延迟执行，都是延迟1个时钟周期，并且根据传入的延迟参数延迟执行
         private void Execute()
         {
             int result;
@@ -523,6 +1001,7 @@ namespace Tomasulo
             {
                 if ((result = addStation.RunExecution(i)) == -1)
                 {   // Check operand avalability.
+                    //更新保留站，WB环节
                     if (addStation.Qj[i] != null)
                     {
                         if (addStation.Qj[i].waitState == WaitInfo.WaitState.Avail)
@@ -542,6 +1021,7 @@ namespace Tomasulo
                 }
                 else if (result == 0)
                 {
+                    //执行结束
                     if (executeClocks[addStation.instrNum[i]] == -1)
                     {
                         executeClocks[addStation.instrNum[i]] = clocks;
@@ -583,17 +1063,9 @@ namespace Tomasulo
             // Load Station.
             for (int i = 0; i < loadStation.numBuffers; i++)
             {
-                if (loadStation.addrReady[i])
-                {   // Address Computed.
-                    loadStation.GetFromMemory(i, memLocs);
-                    if (executeClocks[loadStation.instrNum[i]] == -1)
-                    {
-                        executeClocks[loadStation.instrNum[i]] = clocks;
-                    }
-                }
-                else
-                {   // Compute Address.
-                    if (loadStation.RunExecution(i) == -1)
+                //addr好的时候不延迟，直接做，这里加一下,本来就有2个周期的延迟，最少了
+                    //这边就是load延迟两个时钟周期的原因
+                    if ((result=loadStation.RunExecution(i)) == -1)
                     {   // Check operand availability.
                         if (loadStation.Qj[i] != null)
                         {
@@ -612,31 +1084,34 @@ namespace Tomasulo
                             }
                         }
                     }
-                    else
+                    else if(result==0)
                     {
                         loadStation.addresses[i] = loadStation.ComputeAddress(intRegs, i);
                         loadStation.cyclesToComplete[i] = 2;    // Arbitrary, make user-settable later.
                         loadStation.remainingCycles[i] = -1;
                         loadStation.isReady[i] = false;
                         loadStation.addrReady[i] = true;
+                        // Address Computed.
+                        loadStation.GetFromMemory(i, memLocs);//在里面直接设置执行结束
+                        //这个地方会有延迟
+                        if (executeClocks[loadStation.instrNum[i]] == -1)
+                        {
+                            executeClocks[loadStation.instrNum[i]] = clocks;
+                        }
                     }
-                }
+                
             }
 
             // Store Station.
+            //这里做一个大改动，原来store和load都是没办法延迟周期，觉得超级奇怪
+            //因为在RunExecution里面应该要有延迟执行的才对
+            //后来发现居然是因为没有用reslut...直接如果RunExecution！=-1就到下一步了，就是固定2个周期的延迟
+            //我还傻傻的改了好几天
+            //愣是没发现错，以后再有这样的QAQ，先看是哪里不一样！！
             for (int i = 0; i < storeStation.numBuffers; i++)
             {
-                if (storeStation.addrReady[i])
-                {   // Address Computed.
-                    storeStation.BufferValue(i, floatRegs, intRegs);
-                    if (executeClocks[storeStation.instrNum[i]] == -1)
-                    {
-                        executeClocks[storeStation.instrNum[i]] = clocks;
-                    }
-                }
-                else
-                {   // Compute Address.
-                    if (storeStation.RunExecution(i) == -1)
+                // Compute Address.
+                    if ((result=storeStation.RunExecution(i)) == -1)
                     {   // Check operand availability.
                         if (storeStation.Qj[i] != null)
                         {
@@ -647,20 +1122,32 @@ namespace Tomasulo
                             }
                         }
                     }
-                    else
+                    else if(result==0)
                     {
                         storeStation.addresses[i] = storeStation.ComputeAddress(intRegs, i);
+                    //这个延迟是wb的延迟
+                    //一开始还以为是RunExecution的延迟
+                    //而且其实这里一开始的RunExecution也没有延迟，233，傻了吧
                         storeStation.cyclesToComplete[i] = 2;   // Arbitrary, make user-settable later.
                         storeStation.remainingCycles[i] = -1;
                         storeStation.isReady[i] = false;
                         storeStation.addrReady[i] = true;
+
+                        // Address Computed.
+                        storeStation.BufferValue(i, floatRegs, intRegs);
+                        if (executeClocks[storeStation.instrNum[i]] == -1)
+                        {
+                            executeClocks[storeStation.instrNum[i]] = clocks;
+                        }
                     }
-                }
+                
             }
 
             // Branch Station.
             for (int i = 0; i < branchStation.numBuffers; i++)
             {
+                //感到深深的恶意，为什么分支加法乘法都是在执行里面可以延迟，load和store就不这么写呢
+                //？？？
                 if ((result = branchStation.RunExecution(i)) == -1)
                 {   // Check operand avalability.
                     if (branchStation.Qj[i] != null)
@@ -713,6 +1200,7 @@ namespace Tomasulo
                         Console.WriteLine("Don't know what to do with result.");
                     }
                     addStation.Free(i);
+                    //这里有一个错就是，先做了wb，相当于本来是一起做的，现在有先后顺序，在检验冲突的时候，有一个时钟周期是错的
                 }
             }
 

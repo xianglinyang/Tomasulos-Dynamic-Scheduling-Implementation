@@ -2,7 +2,7 @@
 {
     public class Operand
     {
-        public enum OperandType { FloatReg, IntReg, RegOffset, Num };
+        public enum OperandType { FloatReg, IntReg, RegOffset, Num};
         public OperandType opType;
         public float opVal;
 
